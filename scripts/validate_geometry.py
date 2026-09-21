@@ -10,16 +10,35 @@ import sys
 from pathlib import Path
 
 from design_config import (
+    ADAPTER_Z_ABOVE_BLADE_MM,
     BLADERUNNER_CLEARANCE_Y,
     BLADERUNNER_CLEARANCE_Z,
     BLADE_PCB_ENVELOPE,
+    COMPUTE_BLADE_EXPOSED_POST_MM,
+    COMPUTE_BLADE_HEADER_PIN_TIP_MM,
+    COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
+    COMPUTE_BLADE_STEP_J3_ANCHOR_MM,
+    COMPUTE_BLADE_STEP_J3_REF_DIRECTION,
     NEARBY_BLADE_COMPONENT_KEEP_OUTS,
     DDA,
+    DDA_PIN1_TOP_EDGE_OFFSET_MM,
+    DDA_PIN1_TOP_SIDE_POSITION,
+    DDA_PIN1_UNDERSIDE_POSITION,
     DDA_ROTATION_180,
+    J1_INSERTION_DEPTH_MIN_MM,
+    J1_NOMINAL_STACK_HEIGHT_MM,
     J1_ORIGIN_MM,
+    J1_SEATING_GAP_MM,
+    J1_SOCKET_BODY_HEIGHT_MM,
+    J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM,
+    J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM,
     J2_FOOTPRINT,
     J2_FOOTPRINT_ROTATION_DEG,
-    J2_MATING_FACE_LOCAL_X_MM,
+    J2_MATING_POST_LENGTH_MM,
+    J2_PIN1_CENTER_Z_MM,
+    J2_PIN1_IS_UPPER_MATING_ROW,
+    J2_PIN2_CENTER_Z_MM,
+    J2_POST_TIP_LOCAL_X_MM,
 )
 from fetch_reference_cad import REFERENCES, REFERENCE_DIR, UPSTREAM_COMMIT, digest
 from mechanical_geometry import Box, adapter_box, connector_boxes, dda_boxes, relative_j2
@@ -29,6 +48,43 @@ from verify_connectivity import child, children, parse_sexpr, properties
 ROOT = Path(__file__).resolve().parents[1]
 PCB = ROOT / "pcb" / "compute-blade-dda-adapter.kicad_pcb"
 HALF_BODY_EXPECTED_SIZE = (224.1209, 297.1934, 46.5000)
+
+
+def step_vector(text: str, entity: str) -> tuple[float, float, float]:
+    match = re.search(
+        rf"#{re.escape(entity)}\s*=\s*(?:CARTESIAN_POINT|DIRECTION)\('',\(([^)]+)\)\);",
+        text,
+    )
+    if not match:
+        raise ValueError(f"STEP entity #{entity} is missing or not a point/vector")
+    values = tuple(float(value) for value in match.group(1).split(","))
+    if len(values) != 3:
+        raise ValueError(f"STEP entity #{entity} is not three-dimensional")
+    return values
+
+
+def compute_blade_j3_frame(text: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Extract J3's placement origin and +X reference direction from the STEP."""
+    product = re.search(r"#\d+\s*=\s*PRODUCT\('J3','J3'", text)
+    if not product:
+        raise ValueError("Compute Blade STEP lacks the expected J3 assembly product")
+    window = text[max(0, product.start() - 1200):product.end() + 1600]
+    placements = re.findall(
+        r"#\d+\s*=\s*AXIS2_PLACEMENT_3D\('',#(\d+),#(\d+),#(\d+)\);",
+        window,
+    )
+    candidates = []
+    for point_id, _axis_id, ref_id in placements:
+        point = step_vector(text, point_id)
+        if any(abs(value) > 1e-9 for value in point):
+            candidates.append((point, step_vector(text, ref_id)))
+    if len(candidates) != 1:
+        raise ValueError(f"expected one non-origin J3 placement, found {len(candidates)}")
+    return candidates[0]
+
+
+def vector_close(actual: tuple[float, ...], expected: tuple[float, ...], tolerance: float) -> bool:
+    return all(abs(a - e) <= tolerance for a, e in zip(actual, expected))
 
 
 def stl_bounds(path: Path) -> tuple[tuple[float, float, float], tuple[float, float, float], int]:
@@ -83,6 +139,18 @@ def validate_footprint() -> list[str]:
         errors.append(
             f"J2 rotation must be {J2_FOOTPRINT_ROTATION_DEG:g} degrees so its mating axis is +X; found {angle:g}"
         )
+    pads = {pad[1]: pad for pad in children(j2, "pad")}
+    if "1" not in pads or "2" not in pads:
+        errors.append("J2 footprint must contain physical pads 1 and 2")
+    else:
+        pad1_at = child(pads["1"], "at")
+        pad2_at = child(pads["2"], "at")
+        if not pad1_at or not pad2_at:
+            errors.append("J2 pads 1 and 2 must have explicit coordinates")
+        elif (float(pad1_at[1]), float(pad1_at[2])) != (0.0, 0.0) or (
+            float(pad2_at[1]), float(pad2_at[2])
+        ) != (2.54, 0.0):
+            errors.append("J2 physical pads 1 and 2 no longer match the explicit footprint orientation")
     return errors
 
 
@@ -101,9 +169,20 @@ def check_references() -> tuple[list[str], list[str]]:
         text = step.read_text(encoding="utf-8", errors="ignore")
         if "SI_UNIT(.MILLI.,.METRE.)" not in text:
             errors.append("Compute Blade STEP does not declare millimetre length units")
-        if not re.search(r"PRODUCT\('J3'", text):
-            errors.append("Compute Blade STEP lacks the expected J3 assembly product")
-        notes.append(f"Compute Blade STEP: {step.stat().st_size} bytes; J3 product authenticated")
+        try:
+            anchor, ref_direction = compute_blade_j3_frame(text)
+            if not vector_close(anchor, COMPUTE_BLADE_STEP_J3_ANCHOR_MM, 1e-6):
+                errors.append(f"unexpected Compute Blade J3 STEP anchor: {anchor}")
+            if not vector_close(ref_direction, COMPUTE_BLADE_STEP_J3_REF_DIRECTION, 1e-6):
+                errors.append(f"unexpected Compute Blade J3 +X reference direction: {ref_direction}")
+            notes.append(
+                "Compute Blade STEP J3 frame: origin "
+                + ", ".join(f"{value:.6f}" for value in anchor)
+                + "; local +X follows official STEP +X/USB-C-right"
+            )
+        except ValueError as exc:
+            errors.append(str(exc))
+        notes.append(f"Compute Blade STEP: {step.stat().st_size} bytes; J3 placement extracted")
 
     half = REFERENCE_DIR / "bladerunner_19in_half_body.stl"
     if half.exists():
@@ -116,6 +195,59 @@ def check_references() -> tuple[list[str], list[str]]:
             + " x ".join(f"{value:.2f}" for value in size)
             + f" mm; {triangles} triangles"
         )
+    return errors, notes
+
+
+def validate_connector_constraints(selected_rotation_180: bool) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    notes: list[str] = []
+
+    measured_exposed = COMPUTE_BLADE_HEADER_PIN_TIP_MM - COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM
+    if abs(measured_exposed - COMPUTE_BLADE_EXPOSED_POST_MM) > 1e-9:
+        errors.append("Compute Blade pin-tip minus plastic-top does not equal measured exposed post")
+    if COMPUTE_BLADE_EXPOSED_POST_MM < J1_INSERTION_DEPTH_MIN_MM:
+        errors.append(
+            "Compute Blade exposed post is shorter than the SLW minimum insertion depth"
+        )
+    expected_stack = COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM + J1_SOCKET_BODY_HEIGHT_MM
+    if abs(J1_NOMINAL_STACK_HEIGHT_MM - expected_stack) > 1e-9:
+        errors.append("nominal J1 stack is not header-plastic height plus SLW body height")
+    if abs(ADAPTER_Z_ABOVE_BLADE_MM - (J1_NOMINAL_STACK_HEIGHT_MM + J1_SEATING_GAP_MM)) > 1e-9:
+        errors.append("adapter height does not include the explicit J1 seating-gap parameter")
+    notes.append(
+        f"J1 engagement: measured exposed post {COMPUTE_BLADE_EXPOSED_POST_MM:.3f} mm "
+        f">= SLW minimum insertion {J1_INSERTION_DEPTH_MIN_MM:.3f} mm"
+    )
+    notes.append(
+        f"J1 stack: {J1_NOMINAL_STACK_HEIGHT_MM:.3f} mm nominal + "
+        f"{J1_SEATING_GAP_MM:.3f} mm seating gap = {ADAPTER_Z_ABOVE_BLADE_MM:.3f} mm"
+    )
+
+    if J2_MATING_POST_LENGTH_MM < J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM:
+        errors.append("TSW mating post is shorter than the explicit DDA insertion assumption")
+    plastic_clearance = J2_MATING_POST_LENGTH_MM - J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM
+    if plastic_clearance <= 0:
+        errors.append("modeled DDA socket reaches or intersects the TSW plastic mating face")
+    notes.append(
+        f"J2 simplified axial check: {J2_MATING_POST_LENGTH_MM:.3f} mm post, "
+        f"{J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM:.3f} mm assumed insertion, "
+        f"{plastic_clearance:.3f} mm plastic-face separation"
+    )
+
+    if not J2_PIN1_IS_UPPER_MATING_ROW or J2_PIN1_CENTER_Z_MM <= J2_PIN2_CENTER_Z_MM:
+        errors.append("TSW physical pin 1 must be the upper right-angle mating row")
+    if DDA_PIN1_TOP_SIDE_POSITION != "bottom-left":
+        errors.append("DDA physical pin 1 must be bottom-left in the readable top-side view")
+    if DDA_PIN1_UNDERSIDE_POSITION != "bottom-right":
+        errors.append("DDA physical pin 1 must be bottom-right in the underside hole view")
+    if abs(DDA_PIN1_TOP_EDGE_OFFSET_MM - DDA.top_to_row2) > 1e-9:
+        errors.append("DDA physical pin 1 must occupy the row farther from its top edge")
+    if selected_rotation_180:
+        errors.append("selected 180-degree DDA rotation contradicts the confirmed physical pin-1 orientation")
+    notes.append(
+        "Pin-1 orientation: TSW pin 1 upper row -> DDA bottom-left from readable top side "
+        "(bottom-right from underside)"
+    )
     return errors, notes
 
 
@@ -149,11 +281,22 @@ def variant_checks(rotation_180: bool) -> tuple[list[str], list[str]]:
 
     socket = next(box for box in boxes if box.name == "dda_socket")
     pcb = next(box for box in boxes if box.name == "dda_pcb")
-    expected_face = j2_x + J2_MATING_FACE_LOCAL_X_MM
+    expected_face = j2_x + J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM
     if abs(socket.xmin - expected_face) > 1e-6:
         errors.append("DDA socket mating face does not coincide with the J2 mating plane")
     if abs(pcb.xmin - expected_face - DDA.pcb_surface_to_mating_plane) > 1e-6:
         errors.append("DDA PCB-to-socket mating-plane offset is not 8.3 mm")
+
+    connectors = connector_boxes()
+    header_body = next(box for box in connectors if box.name == "j2_right_angle_body")
+    posts = next(box for box in connectors if box.name == "j2_mating_posts")
+    insertion = max(0.0, min(posts.xmax, socket.xmax) - max(posts.xmin, socket.xmin))
+    if abs(insertion - J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM) > 1e-6:
+        errors.append("modeled TSW-to-DDA insertion does not match the explicit assumption")
+    if socket.overlaps(header_body):
+        errors.append("DDA socket intersects the simplified TSW plastic body")
+    if abs(posts.xmax - (j2_x + J2_POST_TIP_LOCAL_X_MM)) > 1e-6:
+        errors.append("TSW post-tip position does not match its manufacturer post length")
 
     bounds = (
         min(box.xmin for box in boxes), max(box.xmax for box in boxes),
@@ -164,6 +307,13 @@ def variant_checks(rotation_180: bool) -> tuple[list[str], list[str]]:
         f"DDA {'rot180' if rotation_180 else 'default'} envelope: "
         f"X {bounds[0]:.2f}..{bounds[1]:.2f}, Y {bounds[2]:.2f}..{bounds[3]:.2f}, "
         f"Z {bounds[4]:.2f}..{bounds[5]:.2f} mm"
+    )
+    anchor = COMPUTE_BLADE_STEP_J3_ANCHOR_MM
+    notes.append(
+        "DDA envelope in official STEP J3-aligned frame: "
+        f"X {anchor[0] + bounds[0]:.2f}..{anchor[0] + bounds[1]:.2f}, "
+        f"Y {anchor[1] + bounds[2]:.2f}..{anchor[1] + bounds[3]:.2f}, "
+        f"Z {anchor[2] + bounds[4]:.2f}..{anchor[2] + bounds[5]:.2f} mm"
     )
     return errors, notes
 
@@ -179,6 +329,9 @@ def main() -> int:
 
     errors, notes = check_references()
     errors.extend(validate_footprint())
+    constraint_errors, constraint_notes = validate_connector_constraints(selected)
+    errors.extend(constraint_errors)
+    notes.extend(constraint_notes)
     try:
         adapter = adapter_box(board_bounds())
         notes.append(f"Adapter PCB envelope: {adapter}")

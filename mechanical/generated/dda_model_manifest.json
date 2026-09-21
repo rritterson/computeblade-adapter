@@ -1,80 +1,95 @@
 {
+  "assembly_parameters_mm": {
+    "adapter_pcb_underside_above_blade": 7.072,
+    "compute_blade_exposed_post": 6.5,
+    "compute_blade_header_pin_tip": 9.0,
+    "compute_blade_header_plastic_top": 2.5,
+    "j1_minimum_insertion": 2.16,
+    "j1_nominal_stack": 7.072,
+    "j1_seating_gap": 0.0,
+    "j2_assumed_dda_insertion": 2.54,
+    "j2_mating_post": 5.842
+  },
+  "confirmed_dda_pin1": {
+    "top_component_side": "bottom-left",
+    "underside_hole_view": "bottom-right"
+  },
   "selected_dda_rotation_180": false,
   "variants": {
     "default": [
       {
         "name": "dda_pcb",
-        "xmax": 32.58,
-        "xmin": 30.88,
+        "xmax": 29.992,
+        "xmin": 28.292,
         "ymax": 14.6,
         "ymin": -1.9,
-        "zmax": 32.3,
-        "zmin": 9.8
+        "zmax": 28.892,
+        "zmin": 6.391999999999999
       },
       {
         "name": "dda_socket",
-        "xmax": 30.88,
-        "xmin": 22.58,
+        "xmax": 28.292,
+        "xmin": 19.992,
         "ymax": 14.149999999999999,
         "ymin": -1.4500000000000002,
-        "zmax": 17.3,
-        "zmin": 12.3
+        "zmax": 13.892,
+        "zmin": 8.892
       },
       {
         "name": "dda_gnss_envelope",
-        "xmax": 30.88,
-        "xmin": 26.88,
+        "xmax": 28.292,
+        "xmin": 24.292,
         "ymax": 14.6,
         "ymin": -1.9,
-        "zmax": 32.3,
-        "zmin": 9.8
+        "zmax": 28.892,
+        "zmin": 6.391999999999999
       },
       {
         "name": "dda_battery_rtc_envelope",
-        "xmax": 37.33,
-        "xmin": 32.58,
+        "xmax": 34.742000000000004,
+        "xmin": 29.992,
         "ymax": 14.6,
         "ymin": -1.9,
-        "zmax": 32.3,
-        "zmin": 9.8
+        "zmax": 28.892,
+        "zmin": 6.391999999999999
       }
     ],
     "rot180": [
       {
         "name": "dda_pcb",
-        "xmax": 32.58,
-        "xmin": 30.88,
+        "xmax": 29.992,
+        "xmin": 28.292,
         "ymax": 14.6,
         "ymin": -1.9000000000000004,
-        "zmax": 19.34,
-        "zmin": -3.1599999999999966
+        "zmax": 15.931999999999999,
+        "zmin": -6.568000000000001
       },
       {
         "name": "dda_socket",
-        "xmax": 30.88,
-        "xmin": 22.58,
+        "xmax": 28.292,
+        "xmin": 19.992,
         "ymax": 14.149999999999999,
         "ymin": -1.4499999999999993,
-        "zmax": 16.84,
-        "zmin": 11.84
+        "zmax": 13.431999999999999,
+        "zmin": 8.431999999999999
       },
       {
         "name": "dda_gnss_envelope",
-        "xmax": 30.88,
-        "xmin": 26.88,
+        "xmax": 28.292,
+        "xmin": 24.292,
         "ymax": 14.6,
         "ymin": -1.9000000000000004,
-        "zmax": 19.34,
-        "zmin": -3.1599999999999966
+        "zmax": 15.931999999999999,
+        "zmin": -6.568000000000001
       },
       {
         "name": "dda_battery_rtc_envelope",
-        "xmax": 37.33,
-        "xmin": 32.58,
+        "xmax": 34.742000000000004,
+        "xmin": 29.992,
         "ymax": 14.6,
         "ymin": -1.9000000000000004,
-        "zmax": 19.34,
-        "zmin": -3.1599999999999966
+        "zmax": 15.931999999999999,
+        "zmin": -6.568000000000001
       }
     ]
   }

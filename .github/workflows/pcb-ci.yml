@@ -26,7 +26,7 @@ jobs:
         run: |
           python3 scripts/fetch_reference_cad.py | tee output/reference-cad.txt
 
-      - name: Verify deterministic generation and Python tests
+      - name: Verify deterministic generation and measured-geometry tests
         run: |
           python3 scripts/generate_schematic.py
           python3 scripts/generate_or_update_pcb.py
@@ -37,7 +37,7 @@ jobs:
       - name: Verify exact physical-pin connectivity
         run: python3 scripts/verify_connectivity.py | tee output/connectivity-report.txt
 
-      - name: Validate conservative assembly geometry
+      - name: Validate connector constraints and conservative assembly geometry
         run: python3 scripts/validate_geometry.py --compare-variants | tee output/geometry-report.txt
 
       - name: Pull pinned KiCad CLI image

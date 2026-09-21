@@ -8,11 +8,20 @@ from dataclasses import dataclass
 from design_config import (
     ADAPTER_Z_ABOVE_BLADE_MM,
     BOARD_THICKNESS_MM,
+    COMPUTE_BLADE_HEADER_PIN_TIP_MM,
+    COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
     DDA,
-    J2_MATING_FACE_LOCAL_X_MM,
-    J2_ORIGIN_MM,
+    DDA_PIN1_TOP_EDGE_OFFSET_MM,
+    J1_SEATING_GAP_MM,
+    J1_SOCKET_BODY_HEIGHT_MM,
     J1_ORIGIN_MM,
-    J2_ROW1_CENTER_Z_MM,
+    J2_BODY_HEIGHT_MM,
+    J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM,
+    J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+    J2_ORIGIN_MM,
+    J2_PIN1_CENTER_Z_MM,
+    J2_PIN2_CENTER_Z_MM,
+    J2_POST_TIP_LOCAL_X_MM,
 )
 
 
@@ -60,12 +69,14 @@ def rotate_box_around_x(box: Box, center_y: float, center_z: float) -> Box:
 
 def dda_boxes(rotation_180: bool) -> list[Box]:
     j2_x, j2_y = relative_j2()
-    mating_x = j2_x + J2_MATING_FACE_LOCAL_X_MM
+    mating_x = j2_x + J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM
     pcb_face_x = mating_x + DDA.pcb_surface_to_mating_plane
     left_y = j2_y - DDA.first_column_from_left
-    top_z = J2_ROW1_CENTER_Z_MM - DDA.top_to_row1
+    # Confirmed top/component-side pin 1 is in the DDA row farther from its
+    # top edge. It mates to the TSW physical-pin-1 (upper) row.
+    top_z = J2_PIN1_CENTER_Z_MM - DDA_PIN1_TOP_EDGE_OFFSET_MM
     center_y = j2_y + 5 * DDA.row_pitch / 2
-    center_z = J2_ROW1_CENTER_Z_MM + DDA.row_pitch / 2
+    center_z = (J2_PIN1_CENTER_Z_MM + J2_PIN2_CENTER_Z_MM) / 2
 
     boxes = [
         Box(
@@ -113,15 +124,52 @@ def dda_boxes(rotation_180: bool) -> list[Box]:
 def connector_boxes() -> list[Box]:
     j2_x, j2_y = relative_j2()
     return [
-        Box("j1_socket", -4.31, 1.77, -1.77, 11.93, 0.0, ADAPTER_Z_ABOVE_BLADE_MM),
         Box(
-            "j2_right_angle_header",
-            j2_x - 1.77,
-            j2_x + 13.09,
-            j2_y - 1.77,
-            j2_y + 14.47,
-            ADAPTER_Z_ABOVE_BLADE_MM,
-            J2_ROW1_CENTER_Z_MM + DDA.row_pitch + 1.5,
+            "compute_blade_header_plastic",
+            -3.81,
+            1.27,
+            -1.27,
+            11.43,
+            0.0,
+            COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
+        ),
+        Box(
+            "compute_blade_header_exposed_posts",
+            -2.86,
+            0.32,
+            -0.32,
+            10.48,
+            COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
+            COMPUTE_BLADE_HEADER_PIN_TIP_MM,
+        ),
+        Box(
+            "j1_socket_body",
+            -3.81,
+            1.27,
+            -1.27,
+            11.43,
+            COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM + J1_SEATING_GAP_MM,
+            COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM
+            + J1_SEATING_GAP_MM
+            + J1_SOCKET_BODY_HEIGHT_MM,
+        ),
+        Box(
+            "j2_right_angle_body",
+            j2_x + 3.93,
+            j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+            j2_y - 1.38,
+            j2_y + 14.08,
+            ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM,
+            ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM + J2_BODY_HEIGHT_MM,
+        ),
+        Box(
+            "j2_mating_posts",
+            j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+            j2_x + J2_POST_TIP_LOCAL_X_MM,
+            j2_y - 0.32,
+            j2_y + 5 * DDA.row_pitch + 0.32,
+            J2_PIN2_CENTER_Z_MM - 0.32,
+            J2_PIN1_CENTER_Z_MM + 0.32,
         ),
     ]
 
@@ -137,4 +185,3 @@ def adapter_box(board_bounds: tuple[float, float, float, float]) -> Box:
         ADAPTER_Z_ABOVE_BLADE_MM,
         ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM,
     )
-

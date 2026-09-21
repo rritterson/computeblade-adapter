@@ -32,8 +32,45 @@ J1_MODEL = "${KICAD10_3DMODEL_DIR}/Connector_PinSocket_2.54mm.3dshapes/PinSocket
 J2_MODEL = "${KICAD10_3DMODEL_DIR}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_2x06_P2.54mm_Horizontal.step"
 J1_CANDIDATE_PART = "Samtec SLW-105-01-G-D"
 J2_CANDIDATE_PART = "Samtec TSW-106-08-G-D-RA"
-J1_SOCKET_BODY_HEIGHT_MM = 4.572  # Samtec's published 0.180 inch body height.
-J2_MATING_POST_LENGTH_MM = 5.842  # Samtec's published 0.230 inch post length.
+
+# Physically measured Compute Blade v1.0-mk4 extension-header dimensions.
+COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM = 2.5
+COMPUTE_BLADE_HEADER_PIN_TIP_MM = 9.0
+COMPUTE_BLADE_EXPOSED_POST_MM = 6.5
+
+# Manufacturer-controlled dimensions from the Samtec SLW series print.
+J1_SOCKET_BODY_HEIGHT_MM = 4.572  # 0.180 inch
+J1_INSERTION_DEPTH_MIN_MM = 2.16  # 0.085 inch
+J1_INSERTION_DEPTH_MAX_MM = 2.92  # 0.115 inch
+
+# A possible non-bottoming gap is kept separate from the nominal stack.
+J1_SEATING_GAP_MM = 0.0
+J1_NOMINAL_STACK_HEIGHT_MM = (
+    COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM + J1_SOCKET_BODY_HEIGHT_MM
+)
+ADAPTER_Z_ABOVE_BLADE_MM = J1_NOMINAL_STACK_HEIGHT_MM + J1_SEATING_GAP_MM
+
+# Manufacturer-controlled dimensions from the Samtec TSW series print for
+# TSW-106-08-G-D-RA. The drawing identifies pin 1 as the upper RA mating row.
+J2_MATING_POST_LENGTH_MM = 5.842  # 0.230 inch nominal
+J2_BODY_HEIGHT_MM = 5.56  # 0.219 inch reference
+J2_PIN1_CENTER_BELOW_BODY_TOP_MM = 1.0  # 0.040 inch reference
+J2_PIN1_IS_UPPER_MATING_ROW = True
+
+# The DDA socket's internal contact wipe/insertion requirement has not been
+# published or measured. This value is an explicit collision-model assumption,
+# not a claim about the DDA connector specification.
+J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM = 2.54
+
+# The standard KiCad horizontal-header model has its plastic mating face here.
+# The exact TSW post then projects in local +X by J2_MATING_POST_LENGTH_MM.
+J2_HEADER_PLASTIC_FACE_LOCAL_X_MM = 6.69
+J2_POST_TIP_LOCAL_X_MM = (
+    J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM
+)
+J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM = (
+    J2_POST_TIP_LOCAL_X_MM - J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM
+)
 
 
 @dataclass(frozen=True)
@@ -60,9 +97,26 @@ DDA = DdaDimensions()
 
 # Simplified assembly frame, relative to J1 pin 1. The adapter is parallel to
 # the blade XY plane. J2 mates along +X and the upright DDA lies in a YZ plane.
-ADAPTER_Z_ABOVE_BLADE_MM = 8.5
-J2_MATING_FACE_LOCAL_X_MM = 12.58
-J2_ROW1_CENTER_Z_MM = ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM + 4.0
+# The confirmed DDA top/component-side view has physical pin 1 at bottom-left;
+# from the underside it is bottom-right. Therefore DDA physical pin 1 is the
+# geometric row farther from the measured top PCB edge (6.04 mm), and it mates
+# to the TSW's upper physical-pin-1 row. Pin numbering is never inferred from
+# this geometry.
+DDA_PIN1_TOP_SIDE_POSITION = "bottom-left"
+DDA_PIN1_UNDERSIDE_POSITION = "bottom-right"
+DDA_PIN1_TOP_EDGE_OFFSET_MM = DDA.top_to_row2
+J2_PIN1_CENTER_Z_MM = (
+    ADAPTER_Z_ABOVE_BLADE_MM
+    + BOARD_THICKNESS_MM
+    + J2_BODY_HEIGHT_MM
+    - J2_PIN1_CENTER_BELOW_BODY_TOP_MM
+)
+J2_PIN2_CENTER_Z_MM = J2_PIN1_CENTER_Z_MM - PITCH_MM
+
+# J3 is the Compute Blade extension-header product in the pinned official STEP.
+# Its placement and +X reference direction are parsed and checked in CI.
+COMPUTE_BLADE_STEP_J3_ANCHOR_MM = (133.07507717394, 18.325064806914, 0.0)
+COMPUTE_BLADE_STEP_J3_REF_DIRECTION = (1.0, 0.0, 0.0)
 
 # Conservative validation envelopes. These are deliberately kept separate
 # from the upstream CAD hashes: they define the documented alignment from the

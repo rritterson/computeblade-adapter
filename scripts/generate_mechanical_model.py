@@ -8,7 +8,21 @@ import json
 import struct
 from pathlib import Path
 
-from design_config import BLADERUNNER_CLEARANCE_Z, DDA_ROTATION_180
+from design_config import (
+    ADAPTER_Z_ABOVE_BLADE_MM,
+    BLADERUNNER_CLEARANCE_Z,
+    COMPUTE_BLADE_EXPOSED_POST_MM,
+    COMPUTE_BLADE_HEADER_PIN_TIP_MM,
+    COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
+    DDA_PIN1_TOP_SIDE_POSITION,
+    DDA_PIN1_UNDERSIDE_POSITION,
+    DDA_ROTATION_180,
+    J1_INSERTION_DEPTH_MIN_MM,
+    J1_NOMINAL_STACK_HEIGHT_MM,
+    J1_SEATING_GAP_MM,
+    J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM,
+    J2_MATING_POST_LENGTH_MM,
+)
 from mechanical_geometry import Box, adapter_box, connector_boxes, dda_boxes
 
 
@@ -50,8 +64,11 @@ def write_svg(path: Path, boxes: list[Box], title: str) -> None:
         "dda_gnss_envelope": "#7aa6d8",
         "dda_battery_rtc_envelope": "#e8b866",
         "adapter_pcb": "#8d5fbd",
-        "j1_socket": "#555555",
-        "j2_right_angle_header": "#333333",
+        "compute_blade_header_plastic": "#202020",
+        "compute_blade_header_exposed_posts": "#c7a338",
+        "j1_socket_body": "#555555",
+        "j2_right_angle_body": "#333333",
+        "j2_mating_posts": "#c7a338",
         "compute_blade_local_envelope": "#4b75a5",
     }
     scale = 10
@@ -101,7 +118,25 @@ def main() -> None:
     selected = args.dda_rotation_180 == "true"
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
-    manifest = {"selected_dda_rotation_180": selected, "variants": {}}
+    manifest = {
+        "assembly_parameters_mm": {
+            "adapter_pcb_underside_above_blade": ADAPTER_Z_ABOVE_BLADE_MM,
+            "compute_blade_exposed_post": COMPUTE_BLADE_EXPOSED_POST_MM,
+            "compute_blade_header_pin_tip": COMPUTE_BLADE_HEADER_PIN_TIP_MM,
+            "compute_blade_header_plastic_top": COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
+            "j1_minimum_insertion": J1_INSERTION_DEPTH_MIN_MM,
+            "j1_nominal_stack": J1_NOMINAL_STACK_HEIGHT_MM,
+            "j1_seating_gap": J1_SEATING_GAP_MM,
+            "j2_assumed_dda_insertion": J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM,
+            "j2_mating_post": J2_MATING_POST_LENGTH_MM,
+        },
+        "confirmed_dda_pin1": {
+            "top_component_side": DDA_PIN1_TOP_SIDE_POSITION,
+            "underside_hole_view": DDA_PIN1_UNDERSIDE_POSITION,
+        },
+        "selected_dda_rotation_180": selected,
+        "variants": {},
+    }
     for rotation in (False, True):
         name = "rot180" if rotation else "default"
         boxes = dda_boxes(rotation)
