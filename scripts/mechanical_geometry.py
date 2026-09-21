@@ -96,7 +96,8 @@ def transform_dda_local_box(box: Box, origin: tuple[float, float, float]) -> Box
 
 def dda_boxes(rotation_180: bool) -> list[Box]:
     j2_x, j2_y = relative_j2()
-    # Footprint local +X maps to global -Y after its -90-degree board rotation.
+    # Footprint local +X maps to assembly global -Y after its +90-degree KiCad
+    # board rotation (KiCad board coordinates are Y-down).
     mating_y = j2_y - J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM
     left_x = j2_x - DDA.first_column_from_left
     # Confirmed top/component-side pin 1 is in the DDA row farther from its

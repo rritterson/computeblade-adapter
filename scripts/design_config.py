@@ -15,9 +15,10 @@ J2_ORIGIN_MM = (J1_ORIGIN_MM[0] + J2_CENTERLINE_OFFSET_MM, J1_ORIGIN_MM[1])
 BOARD_BOUNDS_RELATIVE_J1_MM = (-10.0, 25.5, -14.0, 14.75)
 
 # The KiCad horizontal-header footprint mates along local +X. Rotating the
-# footprint -90 degrees in the adapter plane maps that axis to global -Y, the
+# footprint +90 degrees in KiCad's Y-down board coordinates maps that axis to
+# assembly global -Y, the
 # SSD/M.2 connector side of the Compute Blade at J3.
-J2_FOOTPRINT_ROTATION_DEG = -90.0
+J2_FOOTPRINT_ROTATION_DEG = 90.0
 J2_MATING_DIRECTION = (0.0, -1.0, 0.0)
 SSD_SIDE_Y_SIGN = -1
 

@@ -10,7 +10,7 @@ The project targets **KiCad 10.0.5** with the pinned `kicad/kicad:10.0.5-full` C
 
 - **J1:** [Samtec SLW-105-01-G-D](https://www.samtec.com/products/slw-105-01-g-d), a vertical 2x5 female through-hole socket on the adapter bottom. The PCB uses KiCad's `Connector_PinSocket_2.54mm:PinSocket_2x05_P2.54mm_Vertical` footprint and generic standard STEP model.
 - **J2:** [Samtec TSW-106-08-G-D-RA](https://www.samtec.com/products/tsw-106-08-g-d-ra), a right-angle 2x6 male through-hole header on the adapter top. The PCB uses KiCad's `Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal` footprint and generic standard STEP model.
-- `J2_FOOTPRINT_ROTATION_DEG = -90.0` maps J2's local +X mating posts to assembly −Y, toward the SSD/M.2 connector side.
+- `J2_FOOTPRINT_ROTATION_DEG = +90.0` in KiCad's Y-down board coordinates maps J2's local +X mating posts to assembly −Y, toward the SSD/M.2 connector side.
 - J1 and J2 pad-row centerlines remain 10.0 mm apart. `J2_CENTERLINE_OFFSET_MM` in `scripts/design_config.py` controls that offset.
 - The board is two-layer, 0.8 mm FR-4 with nominal 1 oz / 35 µm copper. Power and ground routes are 0.50 mm; signal routes are 0.25 mm.
 

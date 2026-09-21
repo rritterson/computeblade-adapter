@@ -37,7 +37,7 @@ class ConnectivityVerifierTests(unittest.TestCase):
             "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal",
             j2[1],
         )
-        self.assertEqual("-90", verifier.child(j2, "at")[3])
+        self.assertEqual("90", verifier.child(j2, "at")[3])
         pads = {pad[1]: pad for pad in verifier.children(j2, "pad")}
         self.assertEqual((110.0, 60.16), verifier.transformed_pad(j2, pads["1"]))
         self.assertEqual((110.0, 57.62), verifier.transformed_pad(j2, pads["2"]))

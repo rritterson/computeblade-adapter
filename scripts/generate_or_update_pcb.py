@@ -57,9 +57,11 @@ def global_pad(ref: str, pin: int) -> tuple[float, float]:
     ox, oy = J1_ORIGIN_MM if ref == "J1" else J2_ORIGIN_MM
     angle = 0.0 if ref == "J1" else J2_FOOTPRINT_ROTATION_DEG
     radians = math.radians(angle)
+    # KiCad board coordinates are Y-down, so positive footprint rotation uses
+    # the inverse sign of the conventional Cartesian XY matrix.
     return (
-        ox + math.cos(radians) * lx - math.sin(radians) * ly,
-        oy + math.sin(radians) * lx + math.cos(radians) * ly,
+        ox + math.cos(radians) * lx + math.sin(radians) * ly,
+        oy - math.sin(radians) * lx + math.cos(radians) * ly,
     )
 
 
@@ -260,7 +262,7 @@ def main() -> None:
     print(f"Wrote {BOARD_PATH.relative_to(ROOT)}")
     print(f"Wrote {REPORT_PATH.relative_to(ROOT)}")
     print(f"J1/J2 centerline offset: {J2_CENTERLINE_OFFSET_MM:.1f} mm")
-    print(f"J2 right-angle mating direction: -Y (SSD side); footprint rotation: {J2_FOOTPRINT_ROTATION_DEG:g} degrees")
+    print(f"J2 right-angle mating direction: -Y (SSD side); KiCad footprint rotation: {J2_FOOTPRINT_ROTATION_DEG:g} degrees")
 
 
 if __name__ == "__main__":

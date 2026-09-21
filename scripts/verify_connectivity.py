@@ -199,8 +199,10 @@ def transformed_pad(footprint: SExpr, pad: SExpr) -> tuple[float, float]:
     angle = float(footprint_at[3]) if len(footprint_at) > 3 else 0.0
     px, py = xy(pad)
     radians = math.radians(angle)
-    gx = ox + math.cos(radians) * px - math.sin(radians) * py
-    gy = oy + math.sin(radians) * px + math.cos(radians) * py
+    # KiCad board coordinates are Y-down, so footprint rotation uses the
+    # inverse sign of the conventional Cartesian XY matrix.
+    gx = ox + math.cos(radians) * px + math.sin(radians) * py
+    gy = oy - math.sin(radians) * px + math.cos(radians) * py
     return round(gx, 3), round(gy, 3)
 
 

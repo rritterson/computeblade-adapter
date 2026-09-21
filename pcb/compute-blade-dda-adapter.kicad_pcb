@@ -84,7 +84,7 @@
   (footprint "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal"
     (layer "F.Cu")
     (uuid d42b1035-a072-5dcf-9892-2fc2a4e821ca)
-    (at 110 60.16 -90)
+    (at 110 60.16 90)
     (descr "KiCad 10 standard 2x06 2.54 mm horizontal through-hole pin header, 6 mm mating pins")
     (tags "Through hole angled pin header THT 2x06 2.54mm double row")
     (property "Reference" "J2" (at -3 -1.41 0) (layer "F.SilkS")
