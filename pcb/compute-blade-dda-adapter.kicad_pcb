@@ -167,13 +167,13 @@
   (gr_rect (start 96.5 44) (end 113.5 63.5)
     (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts")
     (uuid 3b8b670b-f5d7-5eca-b6d6-e9f08391e7ce))
-  (gr_text "DDA GPS/RTC" (at 108.73 44.6) 0
+  (gr_text "DDA GPS/RTC" (at 108.73 44.6 0)
     (layer "F.SilkS") (uuid c8677ce0-d2c8-5378-b911-3a440d839936)
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "PPS -> GPIO4" (at 105 62.85) 0
+  (gr_text "PPS -> GPIO4" (at 105 62.85 0)
     (layer "F.SilkS") (uuid 94af3e3e-24df-5bee-9847-ddbe98d140d5)
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "COMPUTE BLADE" (at 101.27 62.85) 0
+  (gr_text "COMPUTE BLADE" (at 101.27 62.85 0)
     (layer "B.SilkS") (uuid 532e3d9f-3a07-5a8b-972f-14e0a531e98c)
     (effects (font (size 0.8 0.8) (thickness 0.13)) (justify mirror)))
   (segment (start 100 60.16) (end 101.15 58.86) (width 0.2) (layer "F.Cu") (net 1) (uuid e845268e-88a4-5afa-b44e-828680fc5d93))

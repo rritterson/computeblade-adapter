@@ -204,13 +204,13 @@ def build_board() -> str:
   (gr_rect (start {fmt(board_left)} {fmt(board_top)}) (end {fmt(board_right)} {fmt(board_bottom)})
     (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts")
     (uuid {uid('board-outline')}))
-  (gr_text "DDA GPS/RTC" (at {fmt(J2_ORIGIN[0] - 1.27)} {fmt(board_top + 0.6)}) 0
+  (gr_text "DDA GPS/RTC" (at {fmt(J2_ORIGIN[0] - 1.27)} {fmt(board_top + 0.6)} 0)
     (layer "F.SilkS") (uuid {uid('front-label-dda')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "PPS -> GPIO4" (at {fmt((board_left + board_right) / 2)} {fmt(board_bottom - 0.65)}) 0
+  (gr_text "PPS -> GPIO4" (at {fmt((board_left + board_right) / 2)} {fmt(board_bottom - 0.65)} 0)
     (layer "F.SilkS") (uuid {uid('front-label-pps')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "COMPUTE BLADE" (at {fmt(J1_ORIGIN[0] + 1.27)} {fmt(board_bottom - 0.65)}) 0
+  (gr_text "COMPUTE BLADE" (at {fmt(J1_ORIGIN[0] + 1.27)} {fmt(board_bottom - 0.65)} 0)
     (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
     (effects (font (size 0.8 0.8) (thickness 0.13)) (justify mirror)))
 {chr(10).join(routes)}
