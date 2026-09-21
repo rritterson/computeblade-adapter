@@ -24,9 +24,7 @@ from design_config import (
     BLADERUNNER_CLEARANCE_Z,
     BOARD_THICKNESS_MM,
     COMPUTE_BLADE_STEP_J3_ANCHOR_MM,
-    DDA_ROTATION_AXIS,
-    DDA_ROTATION_DEG,
-    DDA_ROTATION_MATRIX,
+    DDA_ASSEMBLY_BASIS,
     DDA_MIN_ACCEPTABLE_INSERTION_MM,
     DDA_ROTATION_180,
     J1_ORIGIN_MM,
@@ -35,13 +33,20 @@ from design_config import (
     J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
     J2_HEADER_PLASTIC_Y_BOUNDS_MM,
     J2_MATING_POST_LENGTH_MM,
+    J2_SOLDER_TAIL_LENGTH_MM,
     J2_PIN1_CENTER_Z_MM,
     J2_PIN2_CENTER_Z_MM,
     J2_MATING_DIRECTION,
     MAX_ASSEMBLED_Z_DEPTH_MM,
 )
 from fetch_reference_cad import REFERENCE_DIR
-from mechanical_geometry import Box, connector_boxes, dda_boxes, relative_j2
+from mechanical_geometry import (
+    Box,
+    assembly_axis_vectors,
+    connector_boxes,
+    dda_boxes,
+    relative_j2,
+)
 from validate_geometry import (
     PCB,
     board_bounds,
@@ -62,16 +67,19 @@ MANIFEST = OUTPUT / "full_assembly_manifest.json"
 
 RENDERS = {
     "render_top.png": {
-        "offset": (20.0, 0.0, 320.0), "focus": (20.0, 0.0, 5.0),
-        "up": (0.0, 1.0, 0.0), "scale": 110.0,
+        # +Z camera looking along -Z: DDA PCB must appear edge-on.
+        "offset": (16.0, -7.0, 320.0), "focus": (16.0, -7.0, 10.0),
+        "up": (0.0, 1.0, 0.0), "scale": 55.0,
     },
     "render_side.png": {
-        "offset": (20.0, -320.0, 25.0), "focus": (20.0, 0.0, 7.0),
-        "up": (0.0, 0.0, 1.0), "scale": 100.0,
-    },
-    "render_front.png": {
-        "offset": (320.0, 0.0, 20.0), "focus": (18.0, -7.0, 10.0),
+        # -Y camera looking along +Y: DDA PCB face must be visible.
+        "offset": (16.0, -320.0, 15.0), "focus": (16.0, -7.0, 15.0),
         "up": (0.0, 0.0, 1.0), "scale": 35.0,
+    },
+    "render_end.png": {
+        # +X camera looking along -X: upright PCB and Z-stacked rows are visible.
+        "offset": (320.0, -7.0, 15.0), "focus": (16.0, -7.0, 15.0),
+        "up": (0.0, 0.0, 1.0), "scale": 28.0,
     },
     "render_iso.png": {
         "offset": (250.0, -230.0, 190.0), "focus": (15.0, 0.0, 5.0),
@@ -241,7 +249,8 @@ def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
                 ),
             )
         )
-        vertical_height = center_z - (ADAPTER_Z_ABOVE_BLADE_MM - 0.5)
+        tail_bottom_z = ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM - J2_SOLDER_TAIL_LENGTH_MM
+        vertical_height = center_z - tail_bottom_z
         tail_shapes.append(
             cq.Solid.makeBox(
                 pin_size,
@@ -250,7 +259,7 @@ def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
                 cq.Vector(
                     ax + px - pin_size / 2,
                     ay + py - pin_size / 2,
-                    az + ADAPTER_Z_ABOVE_BLADE_MM - 0.5,
+                    az + tail_bottom_z,
                 ),
             )
         )
@@ -460,9 +469,8 @@ def main() -> int:
             "j1_adapter_pcb_underside_z_mm": ADAPTER_Z_ABOVE_BLADE_MM,
             "j2_mating_post_length_mm": J2_MATING_POST_LENGTH_MM,
             "selected_dda_rotation_180": DDA_ROTATION_180,
-            "dda_rotation_axis": DDA_ROTATION_AXIS,
-            "dda_rotation_degrees": DDA_ROTATION_DEG,
-            "dda_rotation_matrix": DDA_ROTATION_MATRIX,
+            "dda_assembly_basis": DDA_ASSEMBLY_BASIS,
+            "derived_axis_vectors": assembly_axis_vectors(),
             "j2_mating_direction": J2_MATING_DIRECTION,
             "full_assembly_total_z_depth_mm": z_depth,
             "adapter_board_bounds_relative_j1_mm": [xmin, xmax, ymin, ymax],

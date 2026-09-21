@@ -16,27 +16,32 @@ The project targets **KiCad 10.0.5** with the pinned `kicad/kicad:10.0.5-full` C
 
 The KiCad 3D connector models are not manufacturer-controlled models for these exact orderable parts. Samtec offers configured CAD through its product portal, but the repository validates dimensions available in its manufacturer series drawings and conservatively models the remaining interface.
 
-## Coordinate system and DDA transform
+The selected `-08` is physically the required conventional double-row right-angle topology: solder tails enter the horizontal adapter in Z, mating posts point −Y, six positions run along X, and the mating rows stack in Z. Samtec specifies a 0.230 in / 5.842 mm mating post and 0.090 in / 2.286 mm tail. The evaluated [TSW-106-09-G-D-RA](https://www.samtec.com/products/tsw-106-09-g-d-ra) has the same 5.842 mm mating post but a 0.290 in / 7.366 mm tail. It adds 5.08 mm of unnecessary below-board tail without improving DDA engagement, so it is not mechanically preferable here.
+
+## Coordinate system and axis-derived DDA placement
 
 One coordinate convention is used by PCB placement, collision validation, STEP export, SVG generation, and PNG rendering:
 
 ```text
 X = Compute Blade long axis
 Y = Compute Blade width
-Z = outward normal from the Compute Blade PCB
-DDA rotation = +90 degrees about X
-DDA extension direction = toward the SSD/M.2 connector side (-Y)
+Z = outward normal from the Compute Blade PCB, toward the reference top-view camera
+DDA PCB plane = XZ
+DDA socket mating axis = -Y, toward the SSD/interior side
+six connector columns = +X
+row 1 to row 2 = -Z
+J2 solder tails = +Z into the adapter PCB
 ```
 
-The DDA-local X axis follows its six-pin row, local Y runs from its measured top edge toward its bottom edge, and local Z runs from the socket mating face toward the DDA PCB. The selected transform is exactly:
+The reference photograph is authoritative for orientation. Placement is derived from the final physical axis constraints rather than selected by interpreting Euler angles. The DDA-local X axis follows its six-pin row, local Y runs from its measured top edge toward its bottom edge, and local Z runs from the socket mating face toward the DDA PCB. The resulting local-to-assembly basis is:
 
 ```text
-R_x(+90°) = [[1, 0,  0],
-             [0, 0, -1],
-             [0, 1,  0]]
+basis = [[1, 0,  0],
+         [0, 0, -1],
+         [0, 1,  0]]
 ```
 
-This maps the DDA socket-normal and J2 insertion direction to global −Y and maps the DDA top-to-bottom dimension to +Z. `DDA_ROTATION_AXIS`, `DDA_ROTATION_DEG`, `DDA_ROTATION_MATRIX`, and `J2_MATING_DIRECTION` in `scripts/design_config.py` are imported rather than redefined by the validators and model generators. Regression tests explicitly reject a ±90° Y-axis transform.
+`DDA_COLUMN_AXIS`, `DDA_TOP_TO_BOTTOM_AXIS`, `DDA_PCB_NORMAL`, `DDA_SOCKET_MATING_AXIS`, and the matching J2 axes in `scripts/design_config.py` are the single source used by validation, STEP/SVG generation, and PNG rendering. CI derives vectors from modeled pin centers and hard-fails unless the DDA PCB normal is −Y, columns are +X, socket/J2 mating is −Y, J2 row 1→2 is −Z, and solder tails are +Z. Mutation tests prove that a Y-normal PCB, reversed mating direction, or rows separated in Y is rejected.
 
 ## Exact electrical mapping
 
@@ -88,7 +93,7 @@ The DDA geometric row farther from its measured top PCB edge (6.04 mm) is theref
 
 The [SLW manufacturer series drawing](https://suddendocs.samtec.com/prints/slw-1xx-01-x-x-mkt.pdf) gives a 0.180 in / **4.572 mm** body and 0.085–0.115 in / **2.16–2.92 mm** acceptable insertion depth. The measured 6.5 mm exposed Compute Blade post exceeds the 2.16 mm minimum; CI asserts this.
 
-The [TSW manufacturer series drawing](https://suddendocs.samtec.com/prints/tsw-xxx-xx-xxx-x-xx-xxx-mkt.pdf) gives the `-08` right-angle post as nominally 0.230 in / **5.842 mm**, the double-row body height as 0.219 in / **5.56 mm** reference, locates pin 1 at 0.040 in / **1.0 mm** reference from the corresponding body edge, and shows physical pin 1 as the upper right-angle row. The exact product page confirms 12 pins, two rows, right-angle orientation, 2.54 mm pitch, and 0.635 mm square posts.
+The [TSW manufacturer series drawing](https://suddendocs.samtec.com/prints/tsw-xxx-xx-xxx-x-xx-xxx-mkt.pdf) gives the `-08` right-angle post as nominally 0.230 in / **5.842 mm**, its tail as 0.090 in / **2.286 mm**, the double-row body height as 0.219 in / **5.56 mm** reference, locates pin 1 at 0.040 in / **1.0 mm** reference from the corresponding body edge, and shows physical pin 1 as the upper right-angle row. The exact product page confirms 12 pins, two rows, right-angle orientation, 2.54 mm pitch, and 0.635 mm square posts. CI asserts Z-stacked mating rows, +Z solder tails, and the DDA/J2 −Y mating axis in addition to engagement and body clearance.
 
 ### User-defined acceptance requirement
 
@@ -147,7 +152,7 @@ For the selected state, validation reports the full assembly (excluding the opti
 
 ## Inspecting the assembled 3D model
 
-`scripts/generate_assembly_model.py` produces one inspectable assembly at `mechanical/generated/full_assembly.step`. It imports and re-exports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the exact `R_x(+90°)` and −Y mating-axis state used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
+`scripts/generate_assembly_model.py` produces one inspectable assembly at `mechanical/generated/full_assembly.step`. It imports and re-exports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the same axis-derived basis and −Y mating state used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
 
 The assembly tree and colors distinguish:
 
@@ -162,9 +167,12 @@ J1 and J2 are dimension-driven approximations using the SLW/TSW manufacturer dim
 
 `mechanical/generated/full_assembly_with_bladerunner.step` adds the exact J3-relative BladeRunner clearance frame used by validation. It does **not** apply an invented transform to the upstream BladeRunner STL: the official STL and Compute Blade STEP do not expose a shared installed-assembly datum in this repository. The gray frame is therefore an explicit clearance-envelope approximation, not the exact chassis solid.
 
-Six fixed-view renders are generated alongside the STEP files:
+Six fixed-view renders are generated alongside the STEP files. The first three are explicit orientation inspections:
 
-- `render_top.png`, `render_side.png`, `render_front.png`, and `render_iso.png`;
+- `render_top.png`: +Z camera looking along −Z; the DDA PCB is edge-on and J2 points −Y;
+- `render_end.png`: +X camera looking along −X; the DDA is vertical and J2 rows stack in Z;
+- `render_side.png`: −Y camera looking along +Y; the DDA PCB face is visible;
+- `render_iso.png` provides the overall three-quarter view;
 - `render_j1_closeup.png` for the Compute Blade header, J1 body, and adapter elevation;
 - `render_j2_closeup.png` for the right-angle posts, 3.40 mm DDA socket position, upright DDA PCB, and body-clearance region.
 

@@ -12,7 +12,11 @@ from design_config import (
     COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
     DDA,
     DDA_PIN1_TOP_EDGE_OFFSET_MM,
-    DDA_ROTATION_MATRIX,
+    DDA_ASSEMBLY_BASIS,
+    DDA_COLUMN_AXIS,
+    DDA_PCB_NORMAL,
+    DDA_SOCKET_MATING_AXIS,
+    DDA_TOP_TO_BOTTOM_AXIS,
     J1_SEATING_GAP_MM,
     J1_SOCKET_BODY_HEIGHT_MM,
     J1_ORIGIN_MM,
@@ -24,6 +28,11 @@ from design_config import (
     J2_PIN1_CENTER_Z_MM,
     J2_PIN2_CENTER_Z_MM,
     J2_POST_TIP_LOCAL_X_MM,
+    J2_COLUMN_AXIS,
+    J2_MATING_DIRECTION,
+    J2_ROW1_TO_ROW2_AXIS,
+    J2_SOLDER_TAIL_AXIS,
+    J2_SOLDER_TAIL_LENGTH_MM,
 )
 
 
@@ -70,7 +79,7 @@ def rotate_box_around_y(box: Box, center_x: float, center_z: float) -> Box:
 
 
 def transform_dda_local_box(box: Box, origin: tuple[float, float, float]) -> Box:
-    """Apply the configured DDA rotation matrix and translation to a local box."""
+    """Apply the axis-derived DDA assembly basis and translation."""
     corners = []
     for x in (box.xmin, box.xmax):
         for y in (box.ymin, box.ymax):
@@ -79,7 +88,7 @@ def transform_dda_local_box(box: Box, origin: tuple[float, float, float]) -> Box
                 corners.append(
                     tuple(
                         origin[row]
-                        + sum(DDA_ROTATION_MATRIX[row][column] * local[column] for column in range(3))
+                        + sum(DDA_ASSEMBLY_BASIS[row][column] * local[column] for column in range(3))
                         for row in range(3)
                     )
                 )
@@ -203,12 +212,81 @@ def connector_boxes() -> list[Box]:
             J2_PIN2_CENTER_Z_MM - 0.32,
             J2_PIN1_CENTER_Z_MM + 0.32,
         ),
+        Box(
+            "j2_solder_tails",
+            j2_x - 0.32,
+            j2_x + 5 * DDA.row_pitch + 0.32,
+            j2_y - DDA.row_pitch - 0.32,
+            j2_y + 0.32,
+            ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM - J2_SOLDER_TAIL_LENGTH_MM,
+            ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM,
+        ),
     ]
 
 
-def dda_rotation_matrix() -> tuple[tuple[float, float, float], ...]:
-    """Return the exact DDA local-to-Compute-Blade rotation used everywhere."""
-    return DDA_ROTATION_MATRIX
+def dda_assembly_basis() -> tuple[tuple[float, float, float], ...]:
+    """Return the exact axis-derived DDA local-to-assembly basis."""
+    return DDA_ASSEMBLY_BASIS
+
+
+def _subtract(a: tuple[float, float, float], b: tuple[float, float, float]) -> tuple[float, float, float]:
+    return tuple(a[index] - b[index] for index in range(3))
+
+
+def _unit(vector: tuple[float, float, float]) -> tuple[float, float, float]:
+    length = sum(value * value for value in vector) ** 0.5
+    return tuple(round(value / length, 12) for value in vector)
+
+
+def assembly_axis_vectors() -> dict[str, tuple[float, float, float]]:
+    """Derive the physical axes from modeled J2 and DDA reference points."""
+    j2_x, j2_y = relative_j2()
+    row1_col1 = (j2_x, j2_y, J2_PIN1_CENTER_Z_MM)
+    row1_col2 = (j2_x + DDA.row_pitch, j2_y, J2_PIN1_CENTER_Z_MM)
+    row2_col1 = (j2_x, j2_y, J2_PIN2_CENTER_Z_MM)
+    mating_tip = (j2_x, j2_y - J2_POST_TIP_LOCAL_X_MM, J2_PIN1_CENTER_Z_MM)
+    mating_face = (j2_x, j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM, J2_PIN1_CENTER_Z_MM)
+    tail_bottom = (
+        j2_x,
+        j2_y,
+        ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM - J2_SOLDER_TAIL_LENGTH_MM,
+    )
+    tail_top = (j2_x, j2_y, ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM)
+    local_normal = (0.0, 0.0, 1.0)
+    pcb_normal = tuple(
+        sum(DDA_ASSEMBLY_BASIS[row][column] * local_normal[column] for column in range(3))
+        for row in range(3)
+    )
+    return {
+        "dda_pcb_normal": _unit(pcb_normal),
+        "dda_column_axis": _unit(_subtract(row1_col2, row1_col1)),
+        "dda_socket_mating_axis": _unit(_subtract(mating_tip, mating_face)),
+        "j2_column_axis": _unit(_subtract(row1_col2, row1_col1)),
+        "j2_row1_to_row2": _unit(_subtract(row2_col1, row1_col1)),
+        "j2_mating_axis": _unit(_subtract(mating_tip, mating_face)),
+        "j2_solder_tail_axis": _unit(_subtract(tail_top, tail_bottom)),
+    }
+
+
+def axis_constraint_errors(
+    vectors: dict[str, tuple[float, float, float]] | None = None,
+) -> list[str]:
+    """Return hard failures for any orientation inconsistent with the photo."""
+    actual = assembly_axis_vectors() if vectors is None else vectors
+    expected = {
+        "dda_pcb_normal": DDA_PCB_NORMAL,
+        "dda_column_axis": DDA_COLUMN_AXIS,
+        "dda_socket_mating_axis": DDA_SOCKET_MATING_AXIS,
+        "j2_column_axis": J2_COLUMN_AXIS,
+        "j2_row1_to_row2": J2_ROW1_TO_ROW2_AXIS,
+        "j2_mating_axis": J2_MATING_DIRECTION,
+        "j2_solder_tail_axis": J2_SOLDER_TAIL_AXIS,
+    }
+    return [
+        f"{name} must be {target}, derived {actual.get(name)}"
+        for name, target in expected.items()
+        if actual.get(name) != target
+    ]
 
 
 def adapter_box(board_bounds: tuple[float, float, float, float]) -> Box:

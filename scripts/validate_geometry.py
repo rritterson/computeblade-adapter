@@ -29,9 +29,7 @@ from design_config import (
     DDA_PIN1_TOP_SIDE_POSITION,
     DDA_PIN1_UNDERSIDE_POSITION,
     DDA_ROTATION_180,
-    DDA_ROTATION_AXIS,
-    DDA_ROTATION_DEG,
-    DDA_ROTATION_MATRIX,
+    DDA_ASSEMBLY_BASIS,
     J1_INSERTION_DEPTH_MIN_MM,
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_ORIGIN_MM,
@@ -42,17 +40,28 @@ from design_config import (
     J2_FOOTPRINT_ROTATION_DEG,
     J2_MATING_DIRECTION,
     J2_MATING_POST_LENGTH_MM,
+    J2_ALTERNATIVE_MATING_POST_LENGTH_MM,
+    J2_ALTERNATIVE_SOLDER_TAIL_LENGTH_MM,
     J2_PIN1_CENTER_Z_MM,
     J2_PIN1_IS_UPPER_MATING_ROW,
     J2_PIN2_CENTER_Z_MM,
     J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
     J2_POST_TIP_LOCAL_X_MM,
+    J2_SOLDER_TAIL_LENGTH_MM,
     MAX_ASSEMBLED_Z_DEPTH_MM,
     SSD_SIDE_Y_SIGN,
 )
 from fetch_reference_cad import REFERENCES, REFERENCE_DIR, UPSTREAM_COMMIT, digest
-from mechanical_geometry import Box, adapter_box, connector_boxes, dda_boxes, relative_j2
-from verify_connectivity import child, children, parse_sexpr, properties
+from mechanical_geometry import (
+    Box,
+    adapter_box,
+    assembly_axis_vectors,
+    axis_constraint_errors,
+    connector_boxes,
+    dda_boxes,
+    relative_j2,
+)
+from verify_connectivity import child, children, parse_sexpr, properties, transformed_pad
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -161,6 +170,16 @@ def validate_footprint() -> list[str]:
             float(pad2_at[1]), float(pad2_at[2])
         ) != (2.54, 0.0):
             errors.append("J2 physical pads 1 and 2 no longer match the explicit footprint orientation")
+    if all(pin in pads for pin in ("1", "2", "3")):
+        pad1 = transformed_pad(j2, pads["1"])
+        pad2 = transformed_pad(j2, pads["2"])
+        pad3 = transformed_pad(j2, pads["3"])
+        column_step = tuple(round(pad3[index] - pad1[index], 6) for index in range(2))
+        tail_row_step = tuple(round(pad2[index] - pad1[index], 6) for index in range(2))
+        if column_step != (2.54, 0.0):
+            errors.append(f"J2 six-position axis must run along assembly +X; found {column_step}")
+        if tail_row_step != (0.0, -2.54):
+            errors.append(f"J2 through-hole tail rows must separate along board -Y; found {tail_row_step}")
     if J2_MATING_DIRECTION != (0.0, -1.0, 0.0):
         errors.append("J2 mating direction must remain global -Y toward the SSD side")
     return errors
@@ -214,17 +233,21 @@ def validate_connector_constraints(selected_rotation_180: bool) -> tuple[list[st
     errors: list[str] = []
     notes: list[str] = []
 
-    if DDA_ROTATION_AXIS != "X" or abs(DDA_ROTATION_DEG - 90.0) > 1e-9:
-        errors.append("DDA must use R_x(+90 degrees)")
-    expected_rx90 = ((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0))
-    if DDA_ROTATION_MATRIX != expected_rx90:
-        errors.append("DDA transform matrix is not exactly R_x(+90 degrees)")
-    # R_y(±90) has a zero X/X diagonal entry; this explicitly rejects it.
-    if abs(DDA_ROTATION_MATRIX[0][0] - 1.0) > 1e-9:
-        errors.append("DDA transform resembles a Y-axis rotation")
+    derived_vectors = assembly_axis_vectors()
+    errors.extend(axis_constraint_errors(derived_vectors))
+    expected_basis = ((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0))
+    if DDA_ASSEMBLY_BASIS != expected_basis:
+        errors.append("axis-derived DDA basis does not map its PCB into the XZ plane")
     if SSD_SIDE_Y_SIGN != -1 or J2_MATING_DIRECTION[1] != SSD_SIDE_Y_SIGN:
         errors.append("DDA/J2 direction does not target the official frame's SSD-side -Y")
-    notes.append("Coordinate transform: R_x(+90 degrees); J2/DDA insertion axis global -Y (SSD side)")
+    notes.append(
+        "Axis-derived orientation: DDA plane XZ; columns +X; mating/PCB normal -Y; "
+        "J2 row 1->2 -Z; solder tails +Z"
+    )
+    notes.append(
+        "Derived vectors: "
+        + "; ".join(f"{name}={value}" for name, value in derived_vectors.items())
+    )
 
     measured_exposed = COMPUTE_BLADE_HEADER_PIN_TIP_MM - COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM
     if abs(measured_exposed - COMPUTE_BLADE_EXPOSED_POST_MM) > 1e-9:
@@ -270,6 +293,17 @@ def validate_connector_constraints(selected_rotation_180: bool) -> tuple[list[st
         f"J2 post check: {J2_MATING_POST_LENGTH_MM:.3f} mm usable post >= "
         f"{DDA_MIN_ACCEPTABLE_INSERTION_MM:.3f} mm required; "
         f"post-length margin {post_margin:.3f} mm"
+    )
+    if J2_SOLDER_TAIL_LENGTH_MM < 0.8:
+        errors.append("TSW-106-08 solder tail is shorter than the 0.8 mm adapter PCB")
+    if J2_ALTERNATIVE_MATING_POST_LENGTH_MM != J2_MATING_POST_LENGTH_MM:
+        errors.append("documented -09 comparison no longer has the same mating-post length")
+    if J2_ALTERNATIVE_SOLDER_TAIL_LENGTH_MM <= J2_SOLDER_TAIL_LENGTH_MM:
+        errors.append("documented -09 comparison must retain its longer solder tail")
+    notes.append(
+        f"TSW variant check: -08 tail {J2_SOLDER_TAIL_LENGTH_MM:.3f} mm; "
+        f"-09 tail {J2_ALTERNATIVE_SOLDER_TAIL_LENGTH_MM:.3f} mm; both mating posts "
+        f"{J2_MATING_POST_LENGTH_MM:.3f} mm"
     )
 
     if not J2_PIN1_IS_UPPER_MATING_ROW or J2_PIN1_CENTER_Z_MM <= J2_PIN2_CENTER_Z_MM:

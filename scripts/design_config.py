@@ -16,23 +16,33 @@ BOARD_BOUNDS_RELATIVE_J1_MM = (-10.0, 25.5, -14.0, 14.75)
 
 # The KiCad horizontal-header footprint mates along local +X. Rotating the
 # footprint +90 degrees in KiCad's Y-down board coordinates maps that axis to
-# assembly global -Y, the
-# SSD/M.2 connector side of the Compute Blade at J3.
+# assembly global -Y, the SSD/M.2 connector side at J3.
 J2_FOOTPRINT_ROTATION_DEG = 90.0
-J2_MATING_DIRECTION = (0.0, -1.0, 0.0)
 SSD_SIDE_Y_SIGN = -1
 
-# DDA-local X follows the six-pin row, local Y runs from its measured top edge
-# toward its bottom edge, and local Z runs from socket mating face toward its
-# PCB. R_x(+90) maps those axes to global +X, +Z and -Y respectively. This
-# matrix is the single transform asserted by validation, model generation and
-# rendering; it is deliberately not a Y-axis rotation.
-DDA_ROTATION_AXIS = "X"
-DDA_ROTATION_DEG = 90.0
-DDA_ROTATION_MATRIX = (
-    (1.0, 0.0, 0.0),
-    (0.0, 0.0, -1.0),
-    (0.0, 1.0, 0.0),
+# Authoritative assembly basis, derived from the physical constraints visible
+# in the reference photograph. These vectors are the geometry contract; no
+# Euler-angle interpretation is used to place the DDA or J2:
+#   * six connector columns run along Compute Blade +X;
+#   * the DDA measured top-to-bottom direction runs along +Z;
+#   * the DDA PCB normal and socket mating direction point along -Y;
+#   * J2 row 1 to row 2 points along -Z;
+#   * J2 solder tails enter the horizontal adapter along +Z.
+DDA_COLUMN_AXIS = (1.0, 0.0, 0.0)
+DDA_TOP_TO_BOTTOM_AXIS = (0.0, 0.0, 1.0)
+DDA_PCB_NORMAL = (0.0, -1.0, 0.0)
+DDA_SOCKET_MATING_AXIS = (0.0, -1.0, 0.0)
+J2_COLUMN_AXIS = (1.0, 0.0, 0.0)
+J2_ROW1_TO_ROW2_AXIS = (0.0, 0.0, -1.0)
+J2_MATING_DIRECTION = (0.0, -1.0, 0.0)
+J2_SOLDER_TAIL_AXIS = (0.0, 0.0, 1.0)
+
+# Columns are the images of DDA-local X (columns), Y (top-to-bottom), and Z
+# (socket mating face toward the PCB). This matrix is derived from the basis
+# above and is consumed by every validator, solid generator, and renderer.
+DDA_ASSEMBLY_BASIS = tuple(
+    tuple(axis[row] for axis in (DDA_COLUMN_AXIS, DDA_TOP_TO_BOTTOM_AXIS, DDA_PCB_NORMAL))
+    for row in range(3)
 )
 
 # This is intentionally independent of electrical pin numbering. False is the
@@ -51,6 +61,7 @@ J1_MODEL = "${KICAD10_3DMODEL_DIR}/Connector_PinSocket_2.54mm.3dshapes/PinSocket
 J2_MODEL = "${KICAD10_3DMODEL_DIR}/Connector_PinHeader_2.54mm.3dshapes/PinHeader_2x06_P2.54mm_Horizontal.step"
 J1_CANDIDATE_PART = "Samtec SLW-105-01-G-D"
 J2_CANDIDATE_PART = "Samtec TSW-106-08-G-D-RA"
+J2_ALTERNATIVE_PART = "Samtec TSW-106-09-G-D-RA"
 
 # Physically measured Compute Blade v1.0-mk4 extension-header dimensions.
 COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM = 2.5
@@ -72,6 +83,9 @@ ADAPTER_Z_ABOVE_BLADE_MM = J1_NOMINAL_STACK_HEIGHT_MM + J1_SEATING_GAP_MM
 # Manufacturer-controlled dimensions from the Samtec TSW series print for
 # TSW-106-08-G-D-RA. The drawing identifies pin 1 as the upper RA mating row.
 J2_MATING_POST_LENGTH_MM = 5.842  # 0.230 inch nominal
+J2_SOLDER_TAIL_LENGTH_MM = 2.286  # 0.090 inch nominal for -08
+J2_ALTERNATIVE_MATING_POST_LENGTH_MM = 5.842  # 0.230 inch for -09
+J2_ALTERNATIVE_SOLDER_TAIL_LENGTH_MM = 7.366  # 0.290 inch for -09
 J2_BODY_HEIGHT_MM = 5.56  # 0.219 inch reference
 J2_PIN1_CENTER_BELOW_BODY_TOP_MM = 1.0  # 0.040 inch reference
 J2_PIN1_IS_UPPER_MATING_ROW = True
@@ -121,8 +135,8 @@ class DdaDimensions:
 DDA = DdaDimensions()
 
 # Simplified assembly frame, relative to J1 pin 1. The adapter is parallel to
-# the blade XY plane. J2 mates along -Y and R_x(+90) places the upright DDA in
-# the XZ plane, extending toward the Compute Blade SSD/M.2 connector side.
+# the blade XY plane. The axis-derived basis places the upright DDA in the XZ
+# plane with J2 mating along -Y toward the Compute Blade SSD/M.2 side.
 # The confirmed DDA top/component-side view has physical pin 1 at bottom-left;
 # from the underside it is bottom-right. Therefore DDA physical pin 1 is the
 # geometric row farther from the measured top PCB edge (6.04 mm), and it mates

@@ -20,16 +20,20 @@ from design_config import (
     DDA_PIN1_TOP_SIDE_POSITION,
     DDA_PIN1_UNDERSIDE_POSITION,
     DDA_ROTATION_180,
-    DDA_ROTATION_AXIS,
-    DDA_ROTATION_DEG,
-    DDA_ROTATION_MATRIX,
+    DDA_ASSEMBLY_BASIS,
     J1_INSERTION_DEPTH_MIN_MM,
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_SEATING_GAP_MM,
     J2_MATING_POST_LENGTH_MM,
     J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
 )
-from mechanical_geometry import Box, adapter_box, connector_boxes, dda_boxes
+from mechanical_geometry import (
+    Box,
+    adapter_box,
+    assembly_axis_vectors,
+    connector_boxes,
+    dda_boxes,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,6 +79,7 @@ def write_svg(path: Path, boxes: list[Box], title: str) -> None:
         "j1_socket_body": "#555555",
         "j2_body_elbow_keepout": "#333333",
         "j2_mating_posts": "#c7a338",
+        "j2_solder_tails": "#b8932e",
         "compute_blade_local_envelope": "#4b75a5",
     }
     scale = 10
@@ -143,9 +148,8 @@ def main() -> None:
             "underside_hole_view": DDA_PIN1_UNDERSIDE_POSITION,
         },
         "selected_dda_rotation_180": selected,
-        "dda_rotation_axis": DDA_ROTATION_AXIS,
-        "dda_rotation_degrees": DDA_ROTATION_DEG,
-        "dda_rotation_matrix": DDA_ROTATION_MATRIX,
+        "dda_assembly_basis": DDA_ASSEMBLY_BASIS,
+        "derived_axis_vectors": assembly_axis_vectors(),
         "variants": {},
     }
     for rotation in (False, True):

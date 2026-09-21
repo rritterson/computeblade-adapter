@@ -15,9 +15,7 @@ from design_config import (
     DDA_PIN1_TOP_EDGE_OFFSET_MM,
     DDA_PIN1_TOP_SIDE_POSITION,
     DDA_PIN1_UNDERSIDE_POSITION,
-    DDA_ROTATION_AXIS,
-    DDA_ROTATION_DEG,
-    DDA_ROTATION_MATRIX,
+    DDA_ASSEMBLY_BASIS,
     J1_INSERTION_DEPTH_MIN_MM,
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_SEATING_GAP_MM,
@@ -31,7 +29,13 @@ from design_config import (
     MAX_ASSEMBLED_Z_DEPTH_MM,
     SSD_SIDE_Y_SIGN,
 )
-from mechanical_geometry import connector_boxes, dda_boxes, relative_j2
+from mechanical_geometry import (
+    assembly_axis_vectors,
+    axis_constraint_errors,
+    connector_boxes,
+    dda_boxes,
+    relative_j2,
+)
 
 
 class MechanicalGeometryTests(unittest.TestCase):
@@ -49,16 +53,37 @@ class MechanicalGeometryTests(unittest.TestCase):
             self.assertGreaterEqual(box.zmin, BLADERUNNER_CLEARANCE_Z[0])
             self.assertLessEqual(box.zmax, BLADERUNNER_CLEARANCE_Z[1])
 
-    def test_transform_is_positive_90_about_x_and_not_y(self):
-        self.assertEqual("X", DDA_ROTATION_AXIS)
-        self.assertEqual(90.0, DDA_ROTATION_DEG)
+    def test_axis_derived_transform_matches_authoritative_photo_constraints(self):
         self.assertEqual(
             ((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0)),
-            DDA_ROTATION_MATRIX,
+            DDA_ASSEMBLY_BASIS,
         )
-        self.assertEqual(1.0, DDA_ROTATION_MATRIX[0][0])
         self.assertEqual(-1, SSD_SIDE_Y_SIGN)
         self.assertEqual((0.0, -1.0, 0.0), J2_MATING_DIRECTION)
+        self.assertEqual(
+            {
+                "dda_pcb_normal": (0.0, -1.0, 0.0),
+                "dda_column_axis": (1.0, 0.0, 0.0),
+                "dda_socket_mating_axis": (0.0, -1.0, 0.0),
+                "j2_column_axis": (1.0, 0.0, 0.0),
+                "j2_row1_to_row2": (0.0, 0.0, -1.0),
+                "j2_mating_axis": (0.0, -1.0, 0.0),
+                "j2_solder_tail_axis": (0.0, 0.0, 1.0),
+            },
+            assembly_axis_vectors(),
+        )
+        self.assertEqual([], axis_constraint_errors())
+
+    def test_wrong_axis_and_wrong_direction_mutations_are_rejected(self):
+        vectors = assembly_axis_vectors()
+        vectors["dda_pcb_normal"] = (0.0, 0.0, 1.0)
+        vectors["dda_socket_mating_axis"] = (0.0, 1.0, 0.0)
+        vectors["j2_row1_to_row2"] = (0.0, -1.0, 0.0)
+        errors = axis_constraint_errors(vectors)
+        self.assertEqual(3, len(errors))
+        self.assertTrue(any("dda_pcb_normal" in error for error in errors))
+        self.assertTrue(any("dda_socket_mating_axis" in error for error in errors))
+        self.assertTrue(any("j2_row1_to_row2" in error for error in errors))
 
     def test_measured_compute_blade_post_meets_slw_minimum_insertion(self):
         self.assertAlmostEqual(

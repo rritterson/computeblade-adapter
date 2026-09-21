@@ -16,9 +16,7 @@
     "top_component_side": "bottom-left",
     "underside_hole_view": "bottom-right"
   },
-  "dda_rotation_axis": "X",
-  "dda_rotation_degrees": 90.0,
-  "dda_rotation_matrix": [
+  "dda_assembly_basis": [
     [
       1.0,
       0.0,
@@ -35,6 +33,43 @@
       0.0
     ]
   ],
+  "derived_axis_vectors": {
+    "dda_column_axis": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "dda_pcb_normal": [
+      0.0,
+      -1.0,
+      0.0
+    ],
+    "dda_socket_mating_axis": [
+      0.0,
+      -1.0,
+      0.0
+    ],
+    "j2_column_axis": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "j2_mating_axis": [
+      0.0,
+      -1.0,
+      0.0
+    ],
+    "j2_row1_to_row2": [
+      0.0,
+      0.0,
+      -1.0
+    ],
+    "j2_solder_tail_axis": [
+      0.0,
+      0.0,
+      1.0
+    ]
+  },
   "selected_dda_rotation_180": false,
   "variants": {
     "default": [
