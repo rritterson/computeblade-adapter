@@ -45,18 +45,19 @@ jobs:
 
       - name: Generate and verify inspectable 3D assembly
         env:
-          LIBGL_ALWAYS_SOFTWARE: "1"
           XDG_CACHE_HOME: /tmp/assembly-cache
         run: |
-          xvfb-run -a python3 scripts/generate_assembly_model.py
+          python3 scripts/generate_assembly_model.py
           test -s mechanical/generated/full_assembly.step
           test -s mechanical/generated/full_assembly_with_bladerunner.step
+          test -s mechanical/generated/full_assembly_lightweight.step
           test -s mechanical/generated/render_top.png
           test -s mechanical/generated/render_side.png
           test -s mechanical/generated/render_end.png
           test -s mechanical/generated/render_iso.png
           test -s mechanical/generated/render_j1_closeup.png
           test -s mechanical/generated/render_j2_closeup.png
+          python3 scripts/verify_render_outputs.py
 
       - name: Pull pinned KiCad CLI image
         run: docker pull "$KICAD_IMAGE"

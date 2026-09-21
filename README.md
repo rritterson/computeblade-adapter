@@ -152,9 +152,11 @@ For the selected state, validation reports the full assembly (excluding the opti
 
 ## Inspecting the assembled 3D model
 
-`scripts/generate_assembly_model.py` produces one inspectable assembly at `mechanical/generated/full_assembly.step`. It imports and re-exports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the same axis-derived basis and −Y mating state used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
+`scripts/generate_assembly_model.py` produces an inspectable, flattened multi-solid assembly at `mechanical/generated/full_assembly.step`. It imports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the same axis-derived basis and −Y mating state used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
 
-The assembly tree and colors distinguish:
+The STEP is deliberately exported as a flat compound rather than a CadQuery hierarchical assembly. Some lightweight STEP viewers, including several VS Code extensions, show the hierarchical form as an empty scene even though OCCT/FreeCAD can reopen all of its solids. CI reopens the flattened file, checks its solid count and X/Y/Z bounds, and fails if geometry was lost. `full_assembly_lightweight.step` is also provided: it replaces the highly detailed official Compute Blade B-Rep with its validated PCB envelope while retaining the adapter, connector, pin, and DDA geometry. Use that file when a viewer cannot comfortably display the roughly 100 MB exact-blade assembly.
+
+The assembly geometry distinguishes:
 
 - gray: exact official Compute Blade geometry;
 - green: actual adapter outline/holes and simplified measured DDA PCB;
@@ -167,7 +169,7 @@ J1 and J2 are dimension-driven approximations using the SLW/TSW manufacturer dim
 
 `mechanical/generated/full_assembly_with_bladerunner.step` adds the exact J3-relative BladeRunner clearance frame used by validation. It does **not** apply an invented transform to the upstream BladeRunner STL: the official STL and Compute Blade STEP do not expose a shared installed-assembly datum in this repository. The gray frame is therefore an explicit clearance-envelope approximation, not the exact chassis solid.
 
-Six fixed-view renders are generated alongside the STEP files. The first three are explicit orientation inspections:
+Six fixed-view renders are generated alongside the STEP files. They use a deterministic software projection of the same shared adapter, connector, pin, and DDA solids plus the official Compute Blade PCB bounds. This avoids driver-dependent blank OpenGL/VTK framebuffers in headless CI. The renderer and an independent verifier both require meaningful foreground area and pixel variation, so blank PNGs fail the workflow. The first three are explicit orientation inspections:
 
 - `render_top.png`: +Z camera looking along −Z; the DDA PCB is edge-on and J2 points −Y;
 - `render_end.png`: +X camera looking along −X; the DDA is vertical and J2 rows stack in Z;
@@ -176,7 +178,7 @@ Six fixed-view renders are generated alongside the STEP files. The first three a
 - `render_j1_closeup.png` for the Compute Blade header, J1 body, and adapter elevation;
 - `render_j2_closeup.png` for the right-angle posts, 3.40 mm DDA socket position, upright DDA PCB, and body-clearance region.
 
-Open either STEP file in FreeCAD to inspect or hide individual named parts. On a successful workflow run, download `compute-blade-dda-adapter-reports`; it contains both STEP assemblies, all six renders, and `full_assembly_manifest.json` with the exact parameters, provenance, bounds, and round-trip verification results. These files are generated in CI rather than committed because each STEP is roughly 100 MB.
+Open the STEP files in FreeCAD or another multi-solid STEP viewer. On a successful workflow run, download `compute-blade-dda-adapter-reports`; it contains the two exact-blade flattened assemblies, the lightweight assembly, all six renders, and `full_assembly_manifest.json` with the exact parameters, provenance, bounds, render-content metrics, and round-trip verification results. The large STEP files are generated in CI rather than committed.
 
 The visual assembly is an inspection aid. It does not replace the physical connector and BladeRunner fit-check prototype.
 
