@@ -82,11 +82,15 @@ jobs:
             "$KICAD_IMAGE" kicad-cli pcb drc \
             --severity-error --severity-warning \
             -o output/drc.rpt "$PCB"
-          docker run --rm --user "$(id -u):$(id -g)" \
+          if ! docker run --rm --user "$(id -u):$(id -g)" \
             -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
             "$KICAD_IMAGE" kicad-cli pcb drc \
             --severity-error --exit-code-violations \
-            -o output/drc-errors.rpt "$PCB"
+            -o output/drc-errors.rpt "$PCB"; then
+            cat output/drc-errors.rpt
+            echo "::error file=$PCB,title=KiCad DRC failed::$(tr '\n' ' ' < output/drc-errors.rpt)"
+            exit 5
+          fi
 
       - name: Export schematic and board views
         run: |
