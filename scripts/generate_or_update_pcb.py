@@ -198,7 +198,16 @@ def simplify(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
     return result
 
 
-def routed_points(start: tuple[float, float], end: tuple[float, float], layer: str,
+def pad_escape(ref: str, pin: int) -> tuple[float, float]:
+    """Give every THT pad a straight 1.5 mm exit away from its paired pad."""
+    x, y = global_pad(ref, pin)
+    if ref == "J1":
+        return x + (1.5 if pin % 2 else -1.5), y
+    return x, y + (-1.5 if pin % 2 else 1.5)
+
+
+def routed_points(start: tuple[float, float], start_escape: tuple[float, float],
+                  end_escape: tuple[float, float], end: tuple[float, float], layer: str,
                   net: str, completed: list[tuple[str, str, float, list[tuple[float, float]]]]) -> list[tuple[float, float]]:
     """Deterministically find a clearance-aware 0.1 mm grid route."""
     bounds = BOARD_BOUNDS_RELATIVE_J1_MM
@@ -208,8 +217,8 @@ def routed_points(start: tuple[float, float], end: tuple[float, float], layer: s
     ymax = J1_ORIGIN_MM[1] + bounds[3] - 0.5
     step = 0.1
     width = POWER_TRACE_WIDTH_MM if net in POWER_NETS else SIGNAL_TRACE_WIDTH_MM
-    start_cell = (round((start[0] - xmin) / step), round((start[1] - ymin) / step))
-    end_cell = (round((end[0] - xmin) / step), round((end[1] - ymin) / step))
+    start_cell = (round((start_escape[0] - xmin) / step), round((start_escape[1] - ymin) / step))
+    end_cell = (round((end_escape[0] - xmin) / step), round((end_escape[1] - ymin) / step))
     pad_centers = [
         (global_pad(ref, pin), net_for(ref, pin))
         for ref, count in (("J1", 10), ("J2", 12))
@@ -270,7 +279,7 @@ def routed_points(start: tuple[float, float], end: tuple[float, float], layer: s
     while current is not None:
         cells.append(current)
         current = previous[current]
-    points = [start, *(position(cell) for cell in reversed(cells)), end]
+    points = [start, start_escape, *(position(cell) for cell in reversed(cells)), end_escape, end]
     return simplify(points)
 
 
@@ -286,7 +295,10 @@ def build_board() -> str:
     for pin in (9, 7, 5, 3, 1, 10, 8, 6, 4, 2):
         net = NET_BY_PIN[pin]
         layer = "F.Cu" if pin % 2 else "B.Cu"
-        points = routed_points(global_pad("J1", pin), global_pad("J2", pin), layer, net, completed)
+        points = routed_points(
+            global_pad("J1", pin), pad_escape("J1", pin),
+            pad_escape("J2", pin), global_pad("J2", pin), layer, net, completed,
+        )
         width = POWER_TRACE_WIDTH_MM if net in POWER_NETS else SIGNAL_TRACE_WIDTH_MM
         completed.append((layer, net, width, points))
         routes.extend(
@@ -295,7 +307,10 @@ def build_board() -> str:
         )
 
     pps_net = NET_BY_PIN[7]
-    branch = routed_points(global_pad("J2", 12), global_pad("J1", 7), "F.Cu", pps_net, completed)
+    branch = routed_points(
+        global_pad("J2", 12), pad_escape("J2", 12),
+        pad_escape("J1", 7), global_pad("J1", 7), "F.Cu", pps_net, completed,
+    )
     completed.append(("F.Cu", pps_net, SIGNAL_TRACE_WIDTH_MM, branch))
     routes.extend(
         segment(branch[index], branch[index + 1], "F.Cu", pps_net, f"pps-branch-{index}")
