@@ -107,13 +107,13 @@ def j1_footprint() -> str:
     (at {fmt(J1_ORIGIN_MM[0])} {fmt(J1_ORIGIN_MM[1])})
     (descr "KiCad 10 standard 2x05 2.54 mm vertical through-hole socket")
     (tags "Through hole socket strip THT 2x05 2.54mm double row")
-    (property "Reference" "J1" (at 0.5 12.7 0) (layer "B.SilkS")
+    (property "Reference" "J1" (at -3.5 13.7 0) (layer "B.SilkS")
       (uuid {uid('J1-reference')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
     (property "Value" "COMPUTE BLADE" (at -1.27 12.93 0) (layer "B.Fab")
       (uuid {uid('J1-value')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
     (attr through_hole)
 {chr(10).join(outline)}
-    (fp_text user "1" (at 0 -1.2 0) (layer "B.SilkS")
+    (fp_text user "1" (at 2 -0.8 0) (layer "B.SilkS")
       (uuid {uid('J1-pin1-text')}) (effects (font (size 0.8 0.8) (thickness 0.14)) (justify mirror)))
 {pads}
     (model "{J1_MODEL}" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))
@@ -139,16 +139,16 @@ def j2_footprint() -> str:
     (at {fmt(J2_ORIGIN_MM[0])} {fmt(J2_ORIGIN_MM[1])} {fmt(J2_FOOTPRINT_ROTATION_DEG)})
     (descr "KiCad 10 standard 2x06 2.54 mm horizontal through-hole pin header, 6 mm mating pins")
     (tags "Through hole angled pin header THT 2x06 2.54mm double row")
-    (property "Reference" "J2" (at 2.54 14.1 0) (layer "F.SilkS")
+    (property "Reference" "J2" (at -7 13.7 0) (layer "F.SilkS")
       (uuid {uid('J2-reference')}) (effects (font (size 1 1) (thickness 0.15))))
     (property "Value" "DDA GPS/RTC RIGHT-ANGLE" (at 7 13.8 0) (layer "F.Fab")
       (uuid {uid('J2-value')}) (effects (font (size 1 1) (thickness 0.15))))
     (attr through_hole)
 {chr(10).join(graphics)}
-    (fp_text user "1" (at -1.2 -1.0 0) (layer "F.SilkS")
+    (fp_text user "1" (at -2.7 0 0) (layer "F.SilkS")
       (uuid {uid('J2-pin1-text')}) (effects (font (size 0.8 0.8) (thickness 0.14))))
-    (fp_text user "MATES +X ->" (at 8.2 13.55 0) (layer "F.SilkS")
-      (uuid {uid('J2-mating-direction')}) (effects (font (size 0.65 0.65) (thickness 0.11))))
+    (fp_text user "+X ->" (at 9 14 0) (layer "F.SilkS")
+      (uuid {uid('J2-mating-direction')}) (effects (font (size 0.8 0.8) (thickness 0.13))))
 {pads}
     (model "{J2_MODEL}" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))
   )'''
@@ -174,7 +174,7 @@ def route_pair(pin: int) -> list[str]:
         return [segment(points[i], points[i + 1], "F.Cu", net, f"route-{pin}-{i}") for i in range(3)]
     direction = -1.0 if pin % 2 else 1.0
     layer = "F.Cu" if pin % 2 else "B.Cu"
-    lane_y = start[1] + direction * 1.10
+    lane_y = start[1] + direction * (PITCH_MM / 2)
     points = [start, (start[0] + 1.15, lane_y), (end[0] - 1.15, lane_y), end]
     return [segment(points[i], points[i + 1], layer, net, f"route-{pin}-{i}") for i in range(3)]
 
@@ -218,12 +218,12 @@ def build_board() -> str:
 {j2_footprint()}
   (gr_rect (start {fmt(board_left)} {fmt(board_top)}) (end {fmt(board_right)} {fmt(board_bottom)})
     (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts") (uuid {uid('board-outline')}))
-  (gr_text "DDA GPS/RTC" (at 106.4 73.9 0) (layer "F.SilkS") (uuid {uid('front-label-dda')})
-    (effects (font (size 0.7 0.7) (thickness 0.12))))
-  (gr_text "PPS -> GPIO4" (at 106.0 58.75 0) (layer "F.SilkS") (uuid {uid('front-label-pps')})
-    (effects (font (size 0.65 0.65) (thickness 0.11))))
+  (gr_text "DDA GPS/RTC" (at 105.5 73.9 0) (layer "F.SilkS") (uuid {uid('front-label-dda')})
+    (effects (font (size 0.8 0.8) (thickness 0.13))))
+  (gr_text "PPS -> GPIO4" (at 103.5 58.75 0) (layer "F.SilkS") (uuid {uid('front-label-pps')})
+    (effects (font (size 0.8 0.8) (thickness 0.13))))
   (gr_text "COMPUTE BLADE" (at 101.5 73.9 0) (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
-    (effects (font (size 0.7 0.7) (thickness 0.12)) (justify mirror)))
+    (effects (font (size 0.8 0.8) (thickness 0.13)) (justify mirror)))
 {chr(10).join(routes)}
 )\n'''
 
