@@ -57,6 +57,10 @@ jobs:
           test -s mechanical/generated/render_iso.png
           test -s mechanical/generated/render_j1_closeup.png
           test -s mechanical/generated/render_j2_closeup.png
+          test -s mechanical/generated/assembly_top.png
+          test -s mechanical/generated/assembly_x_view.png
+          test -s mechanical/generated/assembly_y_view.png
+          test -s mechanical/generated/assembly_iso.png
           python3 scripts/verify_render_outputs.py
 
       - name: Pull pinned KiCad CLI image

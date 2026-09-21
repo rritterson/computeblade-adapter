@@ -18,6 +18,10 @@ REQUIRED = (
     "render_iso.png",
     "render_j1_closeup.png",
     "render_j2_closeup.png",
+    "assembly_top.png",
+    "assembly_x_view.png",
+    "assembly_y_view.png",
+    "assembly_iso.png",
 )
 BACKGROUND = (245, 245, 245)
 

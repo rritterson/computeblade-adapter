@@ -109,7 +109,7 @@ def write_svg(path: Path, boxes: list[Box], title: str) -> None:
     path.write_text(
         f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width*scale:.0f}" height="{height*scale:.0f}" viewBox="0 0 {width*scale:.0f} {height*scale:.0f}">
 <rect width="100%" height="100%" fill="white"/>
-<text x="15" y="24" font-family="sans-serif" font-size="15">{title} — X-axis view (+Y right, +Z up; SSD side left)</text>
+<text x="15" y="24" font-family="sans-serif" font-size="15">{title} — X-axis view (+Y right, +Z up; selected DDA extends right)</text>
 <line x1="0" y1="{(height+z0)*scale:.1f}" x2="{width*scale}" y2="{(height+z0)*scale:.1f}" stroke="#aa0000" stroke-dasharray="6 4"/>
 {''.join(shapes)}
 <text x="15" y="48" font-family="sans-serif" font-size="11">Green dashed: conservative BladeRunner Z clearance; blue: local Compute Blade; purple: adapter</text>

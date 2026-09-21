@@ -23,6 +23,7 @@ from design_config import (
     BLADERUNNER_CLEARANCE_Y,
     BLADERUNNER_CLEARANCE_Z,
     BOARD_THICKNESS_MM,
+    COMPUTE_BLADE_PCB_BOUNDS_MM,
     COMPUTE_BLADE_STEP_J3_ANCHOR_MM,
     DDA_ASSEMBLY_BASIS,
     DDA_MIN_ACCEPTABLE_INSERTION_MM,
@@ -45,6 +46,9 @@ from mechanical_geometry import (
     assembly_axis_vectors,
     connector_boxes,
     dda_boxes,
+    j2_axis_interval,
+    j2_axis_y,
+    j2_column_interval,
     relative_j2,
 )
 from validate_geometry import (
@@ -69,21 +73,21 @@ MANIFEST = OUTPUT / "full_assembly_manifest.json"
 RENDERS = {
     "render_top.png": {
         # +Z camera looking along -Z: DDA PCB must appear edge-on.
-        "offset": (16.0, -7.0, 320.0), "focus": (16.0, -7.0, 10.0),
+        "offset": (10.0, 3.0, 320.0), "focus": (10.0, 3.0, 10.0),
         "up": (0.0, 1.0, 0.0), "scale": 55.0,
     },
     "render_side.png": {
-        # -Y camera looking along +Y: DDA PCB face must be visible.
-        "offset": (16.0, -320.0, 15.0), "focus": (16.0, -7.0, 15.0),
+        # +Y camera looking along -Y: DDA PCB face must be visible.
+        "offset": (10.0, 320.0, 15.0), "focus": (10.0, 3.0, 15.0),
         "up": (0.0, 0.0, 1.0), "scale": 35.0,
     },
     "render_end.png": {
         # +X camera looking along -X: upright PCB and Z-stacked rows are visible.
-        "offset": (320.0, -7.0, 15.0), "focus": (16.0, -7.0, 15.0),
+        "offset": (320.0, 3.0, 15.0), "focus": (10.0, 3.0, 15.0),
         "up": (0.0, 0.0, 1.0), "scale": 28.0,
     },
     "render_iso.png": {
-        "offset": (250.0, -230.0, 190.0), "focus": (15.0, 0.0, 5.0),
+        "offset": (250.0, 230.0, 190.0), "focus": (10.0, 3.0, 5.0),
         "up": (0.0, 0.0, 1.0), "scale": 125.0,
     },
     "render_j1_closeup.png": {
@@ -91,8 +95,25 @@ RENDERS = {
         "up": (0.0, 0.0, 1.0), "scale": 15.0,
     },
     "render_j2_closeup.png": {
-        "offset": (45.0, -48.0, 34.0), "focus": (16.0, -10.0, 13.0),
+        "offset": (45.0, 58.0, 34.0), "focus": (10.0, 10.0, 13.0),
         "up": (0.0, 0.0, 1.0), "scale": 22.0,
+    },
+    # Explicitly named inspection views requested for the +Y placement revision.
+    "assembly_top.png": {
+        "offset": (10.0, 3.0, 320.0), "focus": (10.0, 3.0, 10.0),
+        "up": (0.0, 1.0, 0.0), "scale": 55.0,
+    },
+    "assembly_x_view.png": {
+        "offset": (320.0, 3.0, 15.0), "focus": (10.0, 3.0, 15.0),
+        "up": (0.0, 0.0, 1.0), "scale": 28.0,
+    },
+    "assembly_y_view.png": {
+        "offset": (10.0, 320.0, 15.0), "focus": (10.0, 3.0, 15.0),
+        "up": (0.0, 0.0, 1.0), "scale": 35.0,
+    },
+    "assembly_iso.png": {
+        "offset": (250.0, 230.0, 190.0), "focus": (10.0, 3.0, 5.0),
+        "up": (0.0, 0.0, 1.0), "scale": 125.0,
     },
 }
 
@@ -222,12 +243,20 @@ def j1_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
 def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, Any, Any]]:
     ax, ay, az = COMPUTE_BLADE_STEP_J3_ANCHOR_MM
     j2_x, j2_y = relative_j2()
+    body_xmin, body_xmax = j2_column_interval(*J2_HEADER_PLASTIC_Y_BOUNDS_MM)
+    body_ymin, body_ymax = j2_axis_interval(
+        J2_HEADER_PLASTIC_BACK_LOCAL_X_MM, J2_HEADER_PLASTIC_FACE_LOCAL_X_MM
+    )
+    post_ymin, post_ymax = j2_axis_interval(
+        J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+        J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM,
+    )
     body = Box(
         "j2_plastic",
-        ax + j2_x + J2_HEADER_PLASTIC_Y_BOUNDS_MM[0],
-        ax + j2_x + J2_HEADER_PLASTIC_Y_BOUNDS_MM[1],
-        ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
-        ay + j2_y - J2_HEADER_PLASTIC_BACK_LOCAL_X_MM,
+        ax + body_xmin,
+        ax + body_xmax,
+        ay + body_ymin,
+        ay + body_ymax,
         az + ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM,
         az + ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM + J2_BODY_HEIGHT_MM,
     )
@@ -244,7 +273,7 @@ def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
                 pin_size,
                 cq.Vector(
                     ax + px - pin_size / 2,
-                    ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM - J2_MATING_POST_LENGTH_MM,
+                    ay + post_ymin,
                     az + center_z - pin_size / 2,
                 ),
             )
@@ -266,11 +295,11 @@ def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
         tail_shapes.append(
             cq.Solid.makeBox(
                 pin_size,
-                max(0.1, py - (j2_y - J2_HEADER_PLASTIC_BACK_LOCAL_X_MM)),
+                max(0.1, abs(j2_axis_y(J2_HEADER_PLASTIC_BACK_LOCAL_X_MM) - py)),
                 pin_size,
                 cq.Vector(
                     ax + px - pin_size / 2,
-                    ay + j2_y - J2_HEADER_PLASTIC_BACK_LOCAL_X_MM,
+                    ay + min(py, j2_axis_y(J2_HEADER_PLASTIC_BACK_LOCAL_X_MM)),
                     az + center_z - pin_size / 2,
                 ),
             )
@@ -305,20 +334,20 @@ def marker_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[s
     j2_axis = cq.Solid.makeCylinder(
         0.16,
         J2_MATING_POST_LENGTH_MM + 4.0,
-        cq.Vector(ax + pin1_x, ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM, az + J2_PIN1_CENTER_Z_MM),
+        cq.Vector(ax + pin1_x, ay + j2_axis_y(J2_HEADER_PLASTIC_FACE_LOCAL_X_MM), az + J2_PIN1_CENTER_Z_MM),
         cq.Vector(*J2_MATING_DIRECTION),
     )
     pin1 = cq.Solid.makeBox(
         0.9, 0.9, 0.9,
         cq.Vector(
             ax + pin1_x - 0.45,
-            ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM - J2_MATING_POST_LENGTH_MM + DDA_MIN_ACCEPTABLE_INSERTION_MM - 0.45,
+            ay + j2_axis_y(J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM) - 0.45,
             az + J2_PIN1_CENTER_Z_MM - 0.45,
         ),
     )
     return [
         ("MARKER_J1_mating_axis", j1_axis, cq.Color(0.85, 0.15, 0.85)),
-        ("MARKER_J2_minus_Y_SSD_side_mating_axis", j2_axis, cq.Color(0.95, 0.70, 0.05)),
+        ("MARKER_J2_plus_Y_top_side_mating_axis", j2_axis, cq.Color(0.95, 0.70, 0.05)),
         ("MARKER_DDA_physical_pin_1", pin1, cq.Color(0.90, 0.05, 0.05)),
     ]
 
@@ -367,7 +396,7 @@ def make_assembly(cq: Any, include_clearance: bool) -> tuple[Any, Any, list[str]
 def _render_parts(pads: dict[str, tuple[float, float]]) -> list[tuple[str, Box, tuple[int, int, int]]]:
     """Return shared-coordinate solids for deterministic software rendering."""
     ax, ay, az = COMPUTE_BLADE_STEP_J3_ANCHOR_MM
-    blade = Box("Compute Blade PCB", -0.50008, 250.016, 0.006, 42.505, -1.6, 0.0)
+    blade = Box("Compute Blade PCB", *COMPUTE_BLADE_PCB_BOUNDS_MM)
     adapter = globalize(
         Box(
             "Adapter PCB",
@@ -427,6 +456,10 @@ def _render_parts(pads: dict[str, tuple[float, float]]) -> list[tuple[str, Box, 
     # Individual posts and bent tails expose the two Z-stacked mating rows;
     # the aggregate connector boxes above remain the conservative keepouts.
     _, j2_y = relative_j2()
+    post_ymin, post_ymax = j2_axis_interval(
+        J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+        J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM,
+    )
     tail_bottom_z = ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM - J2_SOLDER_TAIL_LENGTH_MM
     for pin in range(1, 13):
         px, py = pads[f"J2.{pin}"]
@@ -435,8 +468,8 @@ def _render_parts(pads: dict[str, tuple[float, float]]) -> list[tuple[str, Box, 
             f"J2 post {pin}",
             ax + px - pin_size / 2,
             ax + px + pin_size / 2,
-            ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM - J2_MATING_POST_LENGTH_MM,
-            ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+            ay + post_ymin,
+            ay + post_ymax,
             az + center_z - pin_size / 2,
             az + center_z + pin_size / 2,
         )
@@ -454,10 +487,8 @@ def _render_parts(pads: dict[str, tuple[float, float]]) -> list[tuple[str, Box, 
         "DDA physical pin 1",
         ax + pads["J2.1"][0] - 0.55,
         ax + pads["J2.1"][0] + 0.55,
-        ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM - J2_MATING_POST_LENGTH_MM
-        + DDA_MIN_ACCEPTABLE_INSERTION_MM - 0.55,
-        ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM - J2_MATING_POST_LENGTH_MM
-        + DDA_MIN_ACCEPTABLE_INSERTION_MM + 0.55,
+        ay + j2_axis_y(J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM) - 0.55,
+        ay + j2_axis_y(J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM) + 0.55,
         az + J2_PIN1_CENTER_Z_MM - 0.55,
         az + J2_PIN1_CENTER_Z_MM + 0.55,
     )

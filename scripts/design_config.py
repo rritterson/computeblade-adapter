@@ -10,31 +10,39 @@ from dataclasses import dataclass
 #   X = long axis, Y = blade width, Z = outward PCB normal.
 PITCH_MM = 2.54
 J1_ORIGIN_MM = (100.0, 60.16)
-J2_CENTERLINE_OFFSET_MM = 10.0
-J2_ORIGIN_MM = (J1_ORIGIN_MM[0] + J2_CENTERLINE_OFFSET_MM, J1_ORIGIN_MM[1])
+J2_CENTERLINE_OFFSET_MM = 22.7
+# The 0.5 mm Y inset keeps the complete DDA envelope inside the official
+# Compute Blade PCB outline. The 22.7 mm pin-1 origin preserves the former
+# 10.0..22.7 mm six-position span after turning J2 180 degrees in-plane.
+J2_Y_INSET_MM = -0.5
+J2_ORIGIN_MM = (
+    J1_ORIGIN_MM[0] + J2_CENTERLINE_OFFSET_MM,
+    J1_ORIGIN_MM[1] + J2_Y_INSET_MM,
+)
 BOARD_BOUNDS_RELATIVE_J1_MM = (-10.0, 25.5, -14.0, 14.75)
+DDA_PCB_ENVELOPE_MARGIN_MM = 0.5
 
 # The KiCad horizontal-header footprint mates along local +X. Rotating the
-# footprint +90 degrees in KiCad's Y-down board coordinates maps that axis to
-# assembly global -Y, the SSD/M.2 connector side at J3.
-J2_FOOTPRINT_ROTATION_DEG = 90.0
-SSD_SIDE_Y_SIGN = -1
+# footprint -90 degrees in KiCad's Y-down board coordinates maps that axis to
+# assembly global +Y, toward the top/interior side in the physical mockup.
+J2_FOOTPRINT_ROTATION_DEG = -90.0
+DDA_PLACEMENT_Y_SIGN = 1
 
 # Authoritative assembly basis, derived from the physical constraints visible
 # in the reference photograph. These vectors are the geometry contract; no
 # Euler-angle interpretation is used to place the DDA or J2:
-#   * six connector columns run along Compute Blade +X;
+#   * six connector columns run along Compute Blade -X (parallel to X);
 #   * the DDA measured top-to-bottom direction runs along +Z;
-#   * the DDA PCB normal and socket mating direction point along -Y;
+#   * the DDA PCB normal and socket mating direction point along +Y;
 #   * J2 row 1 to row 2 points along -Z;
 #   * J2 solder tails enter the horizontal adapter along +Z.
-DDA_COLUMN_AXIS = (1.0, 0.0, 0.0)
+DDA_COLUMN_AXIS = (-1.0, 0.0, 0.0)
 DDA_TOP_TO_BOTTOM_AXIS = (0.0, 0.0, 1.0)
-DDA_PCB_NORMAL = (0.0, -1.0, 0.0)
-DDA_SOCKET_MATING_AXIS = (0.0, -1.0, 0.0)
-J2_COLUMN_AXIS = (1.0, 0.0, 0.0)
+DDA_PCB_NORMAL = (0.0, 1.0, 0.0)
+DDA_SOCKET_MATING_AXIS = (0.0, 1.0, 0.0)
+J2_COLUMN_AXIS = (-1.0, 0.0, 0.0)
 J2_ROW1_TO_ROW2_AXIS = (0.0, 0.0, -1.0)
-J2_MATING_DIRECTION = (0.0, -1.0, 0.0)
+J2_MATING_DIRECTION = (0.0, 1.0, 0.0)
 J2_SOLDER_TAIL_AXIS = (0.0, 0.0, 1.0)
 
 # Columns are the images of DDA-local X (columns), Y (top-to-bottom), and Z
@@ -47,7 +55,7 @@ DDA_ASSEMBLY_BASIS = tuple(
 
 # This is intentionally independent of electrical pin numbering. False is the
 # default assembled orientation; True rotates the DDA envelope 180 degrees
-# around J2's global -Y mating axis for an explicit diagnostic check.
+# around J2's global +Y mating axis for an explicit diagnostic check.
 DDA_ROTATION_180 = False
 
 BOARD_THICKNESS_MM = 0.8
@@ -100,7 +108,7 @@ J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM = (
 )
 
 # The standard KiCad horizontal-header model has its plastic mating face here
-# in footprint-local +X. Footprint rotation maps it into assembly global -Y.
+# in footprint-local +X. Footprint rotation maps it into assembly global +Y.
 J2_HEADER_PLASTIC_FACE_LOCAL_X_MM = 6.69
 J2_HEADER_PLASTIC_BACK_LOCAL_X_MM = 3.93
 J2_HEADER_PLASTIC_Y_BOUNDS_MM = (-1.38, 14.08)
@@ -136,7 +144,7 @@ DDA = DdaDimensions()
 
 # Simplified assembly frame, relative to J1 pin 1. The adapter is parallel to
 # the blade XY plane. The axis-derived basis places the upright DDA in the XZ
-# plane with J2 mating along -Y toward the Compute Blade SSD/M.2 side.
+# plane with J2 mating along +Y toward the top/interior side of the blade.
 # The confirmed DDA top/component-side view has physical pin 1 at bottom-left;
 # from the underside it is bottom-right. Therefore DDA physical pin 1 is the
 # geometric row farther from the measured top PCB edge (6.04 mm), and it mates
@@ -164,6 +172,22 @@ COMPUTE_BLADE_STEP_BOUNDS_MM = (
     42.505,
     -5.899999202452,
     14.1,
+)
+# Exact PCB solid bounds extracted from the upstream STEP `Board` product.
+# These exclude connectors and other component overhangs.
+COMPUTE_BLADE_PCB_BOUNDS_MM = (
+    0.006,
+    250.016,
+    0.006,
+    42.505,
+    -1.54631898,
+    0.0,
+)
+COMPUTE_BLADE_PCB_BOUNDS_RELATIVE_J3_MM = (
+    COMPUTE_BLADE_PCB_BOUNDS_MM[0] - COMPUTE_BLADE_STEP_J3_ANCHOR_MM[0],
+    COMPUTE_BLADE_PCB_BOUNDS_MM[1] - COMPUTE_BLADE_STEP_J3_ANCHOR_MM[0],
+    COMPUTE_BLADE_PCB_BOUNDS_MM[2] - COMPUTE_BLADE_STEP_J3_ANCHOR_MM[1],
+    COMPUTE_BLADE_PCB_BOUNDS_MM[3] - COMPUTE_BLADE_STEP_J3_ANCHOR_MM[1],
 )
 MAX_ASSEMBLED_Z_DEPTH_MM = 36.0
 
