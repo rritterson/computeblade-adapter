@@ -99,6 +99,8 @@ The connectivity verifier independently parses symbol pin geometry and labels, P
 
 `.github/workflows/pcb-ci.yml` runs on push, pull request, and manual dispatch. It fetches and authenticates upstream CAD, regenerates all deterministic files, runs Python tests, verifies connectivity, runs KiCad ERC and DRC, runs the selected geometry validation, exports schematic and PCB views, generates Gerbers and Excellon drill files, and packages `compute-blade-dda-adapter-gerbers.zip`.
 
+The board embeds deterministic connector drawings while retaining the official KiCad library IDs and standard 2.54 mm pad geometry. The all-severity DRC report therefore records two non-fatal `lib_footprint_mismatch` warnings; the error-only DRC gate must remain clean.
+
 After a successful run, download `compute-blade-dda-adapter-manufacturing` from the run's **Artifacts** section for fabrication files, and `compute-blade-dda-adapter-reports` for ERC/DRC/connectivity/geometry reports, board views, and both orientation diagrams.
 
 Passing ERC/DRC does not validate mechanics. Passing the geometry script still depends on simplified solids and the stated alignment assumptions. Confirm DDA pin 1, connector mating direction, J1 stack height, component-side orientation, chassis installation position, and real clearances before fabrication.

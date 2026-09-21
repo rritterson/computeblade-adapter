@@ -107,7 +107,7 @@ def j1_footprint() -> str:
     (at {fmt(J1_ORIGIN_MM[0])} {fmt(J1_ORIGIN_MM[1])})
     (descr "KiCad 10 standard 2x05 2.54 mm vertical through-hole socket")
     (tags "Through hole socket strip THT 2x05 2.54mm double row")
-    (property "Reference" "J1" (at -3.5 13.7 0) (layer "B.SilkS")
+    (property "Reference" "J1" (at -3.8 13.7 0) (layer "B.SilkS")
       (uuid {uid('J1-reference')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
     (property "Value" "COMPUTE BLADE" (at -1.27 12.93 0) (layer "B.Fab")
       (uuid {uid('J1-value')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
@@ -139,7 +139,7 @@ def j2_footprint() -> str:
     (at {fmt(J2_ORIGIN_MM[0])} {fmt(J2_ORIGIN_MM[1])} {fmt(J2_FOOTPRINT_ROTATION_DEG)})
     (descr "KiCad 10 standard 2x06 2.54 mm horizontal through-hole pin header, 6 mm mating pins")
     (tags "Through hole angled pin header THT 2x06 2.54mm double row")
-    (property "Reference" "J2" (at -7 13.7 0) (layer "F.SilkS")
+    (property "Reference" "J2" (at -3 -1.41 0) (layer "F.SilkS")
       (uuid {uid('J2-reference')}) (effects (font (size 1 1) (thickness 0.15))))
     (property "Value" "DDA GPS/RTC RIGHT-ANGLE" (at 7 13.8 0) (layer "F.Fab")
       (uuid {uid('J2-value')}) (effects (font (size 1 1) (thickness 0.15))))
@@ -218,11 +218,11 @@ def build_board() -> str:
 {j2_footprint()}
   (gr_rect (start {fmt(board_left)} {fmt(board_top)}) (end {fmt(board_right)} {fmt(board_bottom)})
     (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts") (uuid {uid('board-outline')}))
-  (gr_text "DDA GPS/RTC" (at 105.5 73.9 0) (layer "F.SilkS") (uuid {uid('front-label-dda')})
+  (gr_text "DDA GPS/RTC" (at 104 73.9 0) (layer "F.SilkS") (uuid {uid('front-label-dda')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "PPS -> GPIO4" (at 103.5 58.75 0) (layer "F.SilkS") (uuid {uid('front-label-pps')})
+  (gr_text "PPS -> GPIO4" (at 102.8 58.75 0) (layer "F.SilkS") (uuid {uid('front-label-pps')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "COMPUTE BLADE" (at 101.5 73.9 0) (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
+  (gr_text "COMPUTE BLADE" (at 102.2 73.9 0) (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
     (effects (font (size 0.8 0.8) (thickness 0.13)) (justify mirror)))
 {chr(10).join(routes)}
 )\n'''
