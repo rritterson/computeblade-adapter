@@ -69,6 +69,8 @@ J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM = (
 # The standard KiCad horizontal-header model has its plastic mating face here.
 # The exact TSW post then projects in local +X by J2_MATING_POST_LENGTH_MM.
 J2_HEADER_PLASTIC_FACE_LOCAL_X_MM = 6.69
+J2_HEADER_PLASTIC_BACK_LOCAL_X_MM = 3.93
+J2_HEADER_PLASTIC_Y_BOUNDS_MM = (-1.38, 14.08)
 J2_POST_TIP_LOCAL_X_MM = (
     J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM
 )

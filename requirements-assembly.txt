@@ -1,0 +1,5 @@
+# Pinned CAD and headless-rendering toolchain used by pcb-ci.yml.
+cadquery==2.5.2
+cadquery-ocp==7.7.2
+numpy==2.0.2
+vtk==9.3.1

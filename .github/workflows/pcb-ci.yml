@@ -16,7 +16,7 @@ env:
 jobs:
   validate-and-export:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
 
     steps:
       - name: Check out repository
@@ -25,6 +25,9 @@ jobs:
       - name: Fetch and authenticate official mechanical reference CAD
         run: |
           python3 scripts/fetch_reference_cad.py | tee output/reference-cad.txt
+
+      - name: Install pinned assembly CAD toolchain
+        run: python3 -m pip install --requirement requirements-assembly.txt
 
       - name: Verify deterministic generation and measured-geometry tests
         run: |
@@ -39,6 +42,21 @@ jobs:
 
       - name: Validate connector constraints and conservative assembly geometry
         run: python3 scripts/validate_geometry.py --compare-variants | tee output/geometry-report.txt
+
+      - name: Generate and verify inspectable 3D assembly
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          XDG_CACHE_HOME: /tmp/assembly-cache
+        run: |
+          xvfb-run -a python3 scripts/generate_assembly_model.py
+          test -s mechanical/generated/full_assembly.step
+          test -s mechanical/generated/full_assembly_with_bladerunner.step
+          test -s mechanical/generated/render_top.png
+          test -s mechanical/generated/render_side.png
+          test -s mechanical/generated/render_front.png
+          test -s mechanical/generated/render_iso.png
+          test -s mechanical/generated/render_j1_closeup.png
+          test -s mechanical/generated/render_j2_closeup.png
 
       - name: Pull pinned KiCad CLI image
         run: docker pull "$KICAD_IMAGE"
@@ -130,5 +148,7 @@ jobs:
             output/*.rpt
             output/views/
             mechanical/generated/*.json
+            mechanical/generated/*.step
             mechanical/generated/*.stl
+            mechanical/generated/*.png
           if-no-files-found: warn

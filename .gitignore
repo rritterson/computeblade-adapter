@@ -6,3 +6,6 @@ pcb/*-backups/
 pcb/_autosave-*
 mechanical/reference/*.step
 mechanical/reference/*.stl
+mechanical/generated/full_assembly*.step
+mechanical/generated/full_assembly_manifest.json
+mechanical/generated/render_*.png

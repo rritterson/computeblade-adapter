@@ -121,6 +121,33 @@ The files are downloaded into ignored `mechanical/reference/` storage. The valid
 
 This remains conservative box/mesh validation, not full B-Rep interference analysis. It authenticates the STEP and BladeRunner meshes, checks the J3 anchor/direction, measured header stack, SLW insertion minimum, the 3.40 mm J2 engagement requirement, 2.442 mm post margin, simplified body/elbow separation, confirmed pin-1 orientation, nearby-component keepouts, +X/right extension, DDA socket-to-PCB offset, and BladeRunner Y/Z envelope. The selected upright orientation passes these simplified checks.
 
+## Inspecting the assembled 3D model
+
+`scripts/generate_assembly_model.py` produces one inspectable assembly at `mechanical/generated/full_assembly.step`. It imports and re-exports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the same constants and box transforms used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
+
+The assembly tree and colors distinguish:
+
+- gray: exact official Compute Blade geometry;
+- green: actual adapter outline/holes and simplified measured DDA PCB;
+- black: approximate connector/socket plastic;
+- gold: dimension-driven pins and simplified bent tails;
+- red: confirmed DDA physical pin 1;
+- magenta/yellow: J1 and J2 mating-axis markers.
+
+J1 and J2 are dimension-driven approximations using the SLW/TSW manufacturer dimensions plus the actual KiCad pad positions. Exact configured Samtec STEP downloads are not available for deterministic unauthenticated CI use. The DDA is the existing measured simplified model. The adapter model represents board outline, holes, and thickness; copper and cosmetic board details are intentionally omitted because they do not change the mechanical stack.
+
+`mechanical/generated/full_assembly_with_bladerunner.step` adds the exact J3-relative BladeRunner clearance frame used by validation. It does **not** apply an invented transform to the upstream BladeRunner STL: the official STL and Compute Blade STEP do not expose a shared installed-assembly datum in this repository. The gray frame is therefore an explicit clearance-envelope approximation, not the exact chassis solid.
+
+Six fixed-view renders are generated alongside the STEP files:
+
+- `render_top.png`, `render_side.png`, `render_front.png`, and `render_iso.png`;
+- `render_j1_closeup.png` for the Compute Blade header, J1 body, and adapter elevation;
+- `render_j2_closeup.png` for the right-angle posts, 3.40 mm DDA socket position, upright DDA PCB, and body-clearance region.
+
+Open either STEP file in FreeCAD to inspect or hide individual named parts. On a successful workflow run, download `compute-blade-dda-adapter-reports`; it contains both STEP assemblies, all six renders, and `full_assembly_manifest.json` with the exact parameters, provenance, bounds, and round-trip verification results. These files are generated in CI rather than committed because each STEP is roughly 100 MB.
+
+The visual assembly is an inspection aid. It does not replace the physical connector and BladeRunner fit-check prototype.
+
 ## Regeneration and CI
 
 ```sh
@@ -131,6 +158,8 @@ python3 scripts/generate_mechanical_model.py
 python3 scripts/verify_connectivity.py
 python3 scripts/validate_geometry.py --compare-variants
 python3 -m unittest discover -s scripts -p 'test_*.py' -v
+python3 -m pip install --requirement requirements-assembly.txt
+python3 scripts/generate_assembly_model.py
 ```
 
 `.github/workflows/pcb-ci.yml` runs those deterministic generation, unit, connectivity, and geometry checks on push, pull request, and manual dispatch. It then uses KiCad 10.0.5 for ERC, error-gated DRC, schematic/board views, Gerbers, and Excellon drills. No failure is hidden. Download `compute-blade-dda-adapter-manufacturing` from a workflow run for the Gerber ZIP and `compute-blade-dda-adapter-reports` for reports and renders.
