@@ -38,6 +38,7 @@ NET_BY_PIN = {
 }
 NET_CODE = {net: index for index, net in enumerate(NET_BY_PIN.values(), start=1)}
 POWER_NETS = {"3V3", "5V_PIN2", "5V_PIN4", "GND_PIN6", "GND_PIN9"}
+ROUTE_ORDER = (9, 7, 5, 3, 1, 10, 8, 6, 4, 2)
 
 
 def uid(name: str) -> str:
@@ -192,7 +193,12 @@ def simplify(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
         while len(result) >= 3:
             a, b, c = result[-3:]
             cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
-            if abs(cross) > 1e-8:
+            # Collapse only forward collinear points.  A pad escape followed
+            # by a grid path that briefly doubles back is intentional; using
+            # the cross product alone deleted that escape and let the first
+            # trace segment graze the neighboring connector pad.
+            dot = (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1])
+            if abs(cross) > 1e-8 or dot <= 0:
                 break
             result.pop(-2)
     return result
@@ -292,7 +298,7 @@ def build_board() -> str:
     routes = []
     # Alternating outer/inner order leaves routing channels for the remaining
     # nets. Odd pins use F.Cu and even pins use B.Cu.
-    for pin in (9, 7, 5, 3, 1, 10, 8, 6, 4, 2):
+    for pin in ROUTE_ORDER:
         net = NET_BY_PIN[pin]
         layer = "F.Cu" if pin % 2 else "B.Cu"
         points = routed_points(
