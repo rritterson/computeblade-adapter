@@ -11,9 +11,9 @@ The project targets **KiCad 10.0.5** on the current stable KiCad 10 series. This
 | Physical pin | J1 Compute Blade meaning | J2 DDA meaning | Adapter net |
 |---:|---|---|---|
 | 1 | 3V3 | 3V3 | `3V3` |
-| 2 | 5V | pass-through | `5V_PIN2` |
+| 2 | 5V | unused | `5V_PIN2` |
 | 3 | GPIO2 / SDA | SDA | `SDA_GPIO2` |
-| 4 | 5V | pass-through | `5V_PIN4` |
+| 4 | 5V | unused | `5V_PIN4` |
 | 5 | GPIO3 / SCL | SCL | `SCL_GPIO3` |
 | 6 | GND | GND | `GND_PIN6` |
 | 7 | GPIO4 / PPS_IN | unused on DDA | `PPS_GPIO4` |
@@ -25,7 +25,7 @@ The project targets **KiCad 10.0.5** on the current stable KiCad 10 series. This
 
 J2.12 is intentionally tied to J1.7 and J2.7 so the DDA GPS PPS output reaches Compute Blade physical pin 7 (GPIO4). J2.11 is intentionally and explicitly marked no-connect because RTC_INT is not used.
 
-Duplicate 5 V and GND pins are routed as separate pass-through nets on this adapter. This follows the exact requested mapping and prevents the adapter itself from creating any additional connection beyond the stated pairs. They may already be common on the attached products.
+The DDA does not use J2 pins 2 or 4, but the adapter intentionally preserves the requested J1-to-J2 copper connections on the separate `5V_PIN2` and `5V_PIN4` nets. Energizing those pins at 5 V is therefore expected and matches what would happen if the DDA were connected directly to the board header. Duplicate 5 V and GND connections are not merged together by the adapter; they may already be common on the attached products.
 
 ## Mechanical and fabrication assumptions
 
