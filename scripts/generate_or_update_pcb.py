@@ -38,7 +38,7 @@ NET_BY_PIN = {
 }
 NET_CODE = {net: index for index, net in enumerate(NET_BY_PIN.values(), start=1)}
 POWER_NETS = {"3V3", "5V_PIN2", "5V_PIN4", "GND_PIN6", "GND_PIN9"}
-ROUTE_ORDER = (9, 7, 5, 3, 1, 10, 8, 6, 4, 2)
+ROUTE_ORDER = (9, 7, 5, 3, 1, 10, 8, 6, 4)
 
 
 def uid(name: str) -> str:
@@ -311,6 +311,25 @@ def build_board() -> str:
             segment(points[index], points[index + 1], layer, net, f"route-{pin}-{index}")
             for index in range(len(points) - 1)
         )
+
+    # Route physical pin 2 after all other bottom-layer nets.  Its 0.5 mm
+    # trace uses the otherwise empty bottom perimeter, keeping both bends far
+    # from the adjacent 3V3 pin-1 pads without consuming an A* routing channel.
+    pin2_net = NET_BY_PIN[2]
+    pin2_points = [
+        global_pad("J1", 2),
+        (91.00, 60.16),
+        (91.00, 73.80),
+        (124.50, 73.80),
+        (124.50, 63.70),
+        pad_escape("J2", 2),
+        global_pad("J2", 2),
+    ]
+    completed.append(("B.Cu", pin2_net, POWER_TRACE_WIDTH_MM, pin2_points))
+    routes.extend(
+        segment(pin2_points[index], pin2_points[index + 1], "B.Cu", pin2_net, f"route-2-{index}")
+        for index in range(len(pin2_points) - 1)
+    )
 
     pps_net = NET_BY_PIN[7]
     branch = routed_points(
