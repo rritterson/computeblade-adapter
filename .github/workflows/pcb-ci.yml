@@ -55,7 +55,12 @@ jobs:
             -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
             "$KICAD_IMAGE" kicad-cli pcb drc \
             --severity-error --severity-warning \
-            --exit-code-violations -o output/drc.rpt "$PCB"
+            -o output/drc.rpt "$PCB"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli pcb drc \
+            --severity-error --exit-code-violations \
+            -o output/drc-errors.rpt "$PCB"
 
       - name: Export schematic and board views
         run: |

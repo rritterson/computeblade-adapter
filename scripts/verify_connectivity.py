@@ -198,8 +198,6 @@ def transformed_pad(footprint: SExpr, pad: SExpr) -> tuple[float, float]:
     ox, oy = float(footprint_at[1]), float(footprint_at[2])
     angle = float(footprint_at[3]) if len(footprint_at) > 3 else 0.0
     px, py = xy(pad)
-    if atom(footprint, "layer") == "B.Cu":
-        px = -px
     radians = math.radians(angle)
     gx = ox + math.cos(radians) * px - math.sin(radians) * py
     gy = oy + math.sin(radians) * px + math.cos(radians) * py

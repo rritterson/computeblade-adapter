@@ -51,6 +51,6 @@ The verifier parses embedded symbol pin geometry and schematic labels, then sepa
 
 ## GitHub Actions
 
-`.github/workflows/pcb-ci.yml` runs for pushes, pull requests, and manual dispatch. It uses the pinned `kicad/kicad:10.0.5-full` container to run schematic ERC and PCB DRC with violation exit codes, export schematic PDF and front/back board SVGs, generate Gerbers and Excellon drill files, and package manufacturing outputs as `compute-blade-dda-adapter-gerbers.zip`. Project-local symbol and footprint library tables make the CLI library resolution deterministic.
+`.github/workflows/pcb-ci.yml` runs for pushes, pull requests, and manual dispatch. It uses the pinned `kicad/kicad:10.0.5-full` container to run schematic ERC and PCB DRC, export schematic PDF and front/back board SVGs, generate Gerbers and Excellon drill files, and package manufacturing outputs as `compute-blade-dda-adapter-gerbers.zip`. ERC fails on errors or warnings. DRC records both errors and warnings in `drc.rpt` and fails on error-level board-rule violations; this preserves library-shape warnings for review without treating them as electrical or fabrication-rule errors. Project-local symbol and footprint library tables make CLI library resolution deterministic.
 
 After a successful run, open the workflow run’s **Artifacts** section and download `compute-blade-dda-adapter-manufacturing` for the ZIP, or `compute-blade-dda-adapter-reports` for ERC/DRC reports and renders. CI success is required validation, but physical fit and orientation remain separate sign-off items.

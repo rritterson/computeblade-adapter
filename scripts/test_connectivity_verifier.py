@@ -15,6 +15,18 @@ class ConnectivityVerifierTests(unittest.TestCase):
     def test_generated_schematic_passes(self):
         self.assertEqual([], verifier.validate(self.good, "test"))
 
+    def test_generated_pcb_routes_reach_transformed_pads(self):
+        self.assertEqual([], verifier.validate_pcb_routing(verifier.PCB_PATH))
+
+    def test_bottom_footprint_rotation_is_not_double_mirrored(self):
+        tree = verifier.parse_sexpr(verifier.PCB_PATH.read_text(encoding="utf-8"))
+        j1 = next(
+            footprint for footprint in verifier.children(tree, "footprint")
+            if verifier.properties(footprint).get("Reference") == "J1"
+        )
+        pad2 = next(pad for pad in verifier.children(j1, "pad") if pad[1] == "2")
+        self.assertEqual((97.46, 60.16), verifier.transformed_pad(j1, pad2))
+
     def test_power_short_is_rejected(self):
         bad = copy.deepcopy(self.good)
         bad["J1.1"] = bad["J2.1"] = bad["J1.2"]

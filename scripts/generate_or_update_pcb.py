@@ -51,15 +51,13 @@ def local_pad(pin: int) -> tuple[float, float]:
 
 
 def global_pad(ref: str, pin: int) -> tuple[float, float]:
-    """Apply the KiCad transforms used by the generated footprints.
+    """Apply the 180-degree footprint rotation used by both connectors.
 
-    J1 is bottom-side at 180 degrees: local X is mirrored, then rotated.
-    J2 is front-side at 180 degrees. The resulting connector columns face.
+    KiCad stores bottom-footprint local pad coordinates without an additional
+    board-space X mirror; the layer controls viewing/mating side separately.
     """
     lx, ly = local_pad(pin)
     ox, oy = J1_ORIGIN if ref == "J1" else J2_ORIGIN
-    if ref == "J1":
-        return ox + lx, oy - ly
     return ox - lx, oy - ly
 
 
@@ -149,7 +147,7 @@ def route_pair(pin: int) -> list[str]:
 
 
 def build_board() -> str:
-    board_left = J1_ORIGIN[0] - 3.5
+    board_left = min(global_pad("J1", pin)[0] for pin in range(1, 11)) - 2.0
     board_right = J2_ORIGIN[0] + 3.5
     board_top = J2_ORIGIN[1] - 6 * PITCH_MM - 0.92
     board_bottom = J1_ORIGIN[1] + 3.34
@@ -207,10 +205,10 @@ def build_board() -> str:
   (gr_text "DDA GPS/RTC" (at {fmt(J2_ORIGIN[0] - 1.27)} {fmt(board_top + 0.6)} 0)
     (layer "F.SilkS") (uuid {uid('front-label-dda')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "PPS -> GPIO4" (at {fmt((board_left + board_right) / 2)} {fmt(board_bottom - 0.65)} 0)
+  (gr_text "PPS -> GPIO4" (at {fmt((board_left + board_right) / 2)} {fmt(board_bottom - 1.3)} 0)
     (layer "F.SilkS") (uuid {uid('front-label-pps')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "COMPUTE BLADE" (at {fmt(J1_ORIGIN[0] + 1.27)} {fmt(board_bottom - 0.65)} 0)
+  (gr_text "COMPUTE BLADE" (at {fmt(J1_ORIGIN[0] - 1.27)} {fmt(board_bottom - 1.3)} 0)
     (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
     (effects (font (size 0.8 0.8) (thickness 0.13)) (justify mirror)))
 {chr(10).join(routes)}
