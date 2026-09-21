@@ -16,21 +16,29 @@ env:
 jobs:
   validate-and-export:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Fetch and authenticate official mechanical reference CAD
+        run: |
+          python3 scripts/fetch_reference_cad.py | tee output/reference-cad.txt
+
       - name: Verify deterministic generation and Python tests
         run: |
           python3 scripts/generate_schematic.py
           python3 scripts/generate_or_update_pcb.py
+          python3 scripts/generate_mechanical_model.py
           python3 -m unittest discover -s scripts -p 'test_*.py' -v
-          git diff --exit-code -- pcb CONNECTIVITY.txt
+          git diff --exit-code -- pcb CONNECTIVITY.txt mechanical/generated
 
       - name: Verify exact physical-pin connectivity
         run: python3 scripts/verify_connectivity.py | tee output/connectivity-report.txt
+
+      - name: Validate conservative assembly geometry
+        run: python3 scripts/validate_geometry.py --compare-variants | tee output/geometry-report.txt
 
       - name: Pull pinned KiCad CLI image
         run: docker pull "$KICAD_IMAGE"
@@ -81,6 +89,8 @@ jobs:
             --mode-single --fit-page-to-board --exclude-drawing-sheet --mirror \
             --layers B.Cu,B.SilkS,Edge.Cuts \
             -o output/views/board-back.svg "$PCB"
+          cp mechanical/generated/assembly_side_default.svg output/views/
+          cp mechanical/generated/assembly_side_rot180.svg output/views/
 
       - name: Export Gerbers and Excellon drill files
         run: |
@@ -119,4 +129,6 @@ jobs:
             output/*.txt
             output/*.rpt
             output/views/
+            mechanical/generated/*.json
+            mechanical/generated/*.stl
           if-no-files-found: warn

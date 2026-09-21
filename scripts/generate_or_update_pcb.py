@@ -6,35 +6,34 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+from design_config import (
+    BOARD_THICKNESS_MM,
+    J1_FOOTPRINT,
+    J1_MODEL,
+    J1_ORIGIN_MM,
+    J2_FOOTPRINT,
+    J2_FOOTPRINT_ROTATION_DEG,
+    J2_MODEL,
+    J2_ORIGIN_MM,
+    J2_CENTERLINE_OFFSET_MM,
+    PITCH_MM,
+    POWER_TRACE_WIDTH_MM,
+    SIGNAL_TRACE_WIDTH_MM,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 BOARD_PATH = ROOT / "pcb" / "compute-blade-dda-adapter.kicad_pcb"
 REPORT_PATH = ROOT / "CONNECTIVITY.txt"
-
-# Change this one value to move J2 laterally relative to J1. The board outline,
-# connector placement, labels, and routes are all derived from it.
-CONNECTOR_OFFSET_MM = 10.0
-
-PITCH_MM = 2.54
-J1_ORIGIN = (100.0, 60.16)
-J2_ORIGIN = (J1_ORIGIN[0] + CONNECTOR_OFFSET_MM, J1_ORIGIN[1])
-TRACE_WIDTH_MM = 0.20
-ROUTE_OFFSET_MM = 1.30
 UUID_NAMESPACE = uuid.UUID("5ec70a29-b9c1-44f3-96f8-6bd81180ce3d")
 
 NET_BY_PIN = {
-    1: "3V3",
-    2: "5V_PIN2",
-    3: "SDA_GPIO2",
-    4: "5V_PIN4",
-    5: "SCL_GPIO3",
-    6: "GND_PIN6",
-    7: "PPS_GPIO4",
-    8: "UART_TX_TO_GPS_RX",
-    9: "GND_PIN9",
-    10: "UART_RX_FROM_GPS_TX",
+    1: "3V3", 2: "5V_PIN2", 3: "SDA_GPIO2", 4: "5V_PIN4",
+    5: "SCL_GPIO3", 6: "GND_PIN6", 7: "PPS_GPIO4",
+    8: "UART_TX_TO_GPS_RX", 9: "GND_PIN9", 10: "UART_RX_FROM_GPS_TX",
 }
 NET_CODE = {net: index for index, net in enumerate(NET_BY_PIN.values(), start=1)}
+POWER_NETS = {"3V3", "5V_PIN2", "5V_PIN4", "GND_PIN6", "GND_PIN9"}
 
 
 def uid(name: str) -> str:
@@ -45,20 +44,18 @@ def fmt(value: float) -> str:
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
-def local_pad(pin: int) -> tuple[float, float]:
+def local_pad(ref: str, pin: int) -> tuple[float, float]:
     row = (pin - 1) // 2
-    return (0.0 if pin % 2 else PITCH_MM, row * PITCH_MM)
+    x = (0.0 if pin % 2 else -PITCH_MM) if ref == "J1" else (0.0 if pin % 2 else PITCH_MM)
+    return x, row * PITCH_MM
 
 
 def global_pad(ref: str, pin: int) -> tuple[float, float]:
-    """Apply the 180-degree footprint rotation used by both connectors.
-
-    KiCad stores bottom-footprint local pad coordinates without an additional
-    board-space X mirror; the layer controls viewing/mating side separately.
-    """
-    lx, ly = local_pad(pin)
-    ox, oy = J1_ORIGIN if ref == "J1" else J2_ORIGIN
-    return ox - lx, oy - ly
+    lx, ly = local_pad(ref, pin)
+    ox, oy = J1_ORIGIN_MM if ref == "J1" else J2_ORIGIN_MM
+    # Both footprints are intentionally at zero degrees. J2's library-local
+    # +X direction is its right-angle mating direction.
+    return ox + lx, oy + ly
 
 
 def net_for(ref: str, pin: int) -> str | None:
@@ -69,66 +66,100 @@ def net_for(ref: str, pin: int) -> str | None:
     return NET_BY_PIN[pin]
 
 
-def footprint(ref: str, value: str, library_id: str, rows: int, side: str,
-              origin: tuple[float, float]) -> str:
-    silk = "B.SilkS" if side == "B.Cu" else "F.SilkS"
-    fab = "B.Fab" if side == "B.Cu" else "F.Fab"
-    justify = " (justify mirror)" if side == "B.Cu" else ""
-    max_y = (rows - 1) * PITCH_MM
-    ref_y = max_y / 2
-    value_y = rows * PITCH_MM + 0.7
-    pads = []
-    for pin in range(1, rows * 2 + 1):
-        px, py = local_pad(pin)
-        net = net_for(ref, pin)
-        net_clause = "" if net is None else f' (net {NET_CODE[net]} "{net}")'
-        shape = "rect" if pin == 1 else "oval"
-        pads.append(
-            f'''    (pad "{pin}" thru_hole {shape} (at {fmt(px)} {fmt(py)} 180)
+def pad(ref: str, pin: int) -> str:
+    x, y = local_pad(ref, pin)
+    net = net_for(ref, pin)
+    net_clause = "" if net is None else f' (net {NET_CODE[net]} "{net}")'
+    shape = "rect" if pin == 1 else "circle"
+    return f'''    (pad "{pin}" thru_hole {shape} (at {fmt(x)} {fmt(y)})
       (size 1.7 1.7) (drill 1) (layers "*.Cu" "*.Mask"){net_clause}
       (uuid {uid(f'{ref}-pad-{pin}')}))'''
-        )
 
-    # Marker is outside pin 1 on the outboard side for each transformed footprint.
-    marker_x = -1.9
-    return f'''  (footprint "{library_id}"
-    (layer "{side}")
-    (uuid {uid(ref + '-footprint')})
-    (at {fmt(origin[0])} {fmt(origin[1])} 180)
-    (descr "Standard 2x{rows:02d} 2.54 mm vertical {'socket' if ref == 'J1' else 'pin header'}")
-    (tags "Through hole {'socket' if ref == 'J1' else 'pin header'} 2x{rows:02d} 2.54mm")
-    (property "Reference" "{ref}"
-      (at -2.5 {fmt(ref_y)} 90)
-      (layer "{silk}")
-      (uuid {uid(ref + '-reference')})
-      (effects (font (size 1 1) (thickness 0.15)){justify}))
-    (property "Value" "{value}"
-      (at 1.27 {fmt(value_y)} 0)
-      (layer "{fab}")
-      (uuid {uid(ref + '-value')})
-      (effects (font (size 1 1) (thickness 0.15)){justify}))
+
+def fp_line(ref: str, index: int, start: tuple[float, float], end: tuple[float, float],
+            layer: str, width: float) -> str:
+    return f'''    (fp_line (start {fmt(start[0])} {fmt(start[1])}) (end {fmt(end[0])} {fmt(end[1])})
+      (stroke (width {fmt(width)}) (type solid)) (layer "{layer}")
+      (uuid {uid(f'{ref}-line-{index}-{layer}')}))'''
+
+
+def fp_rect(ref: str, index: int, start: tuple[float, float], end: tuple[float, float],
+            layer: str, width: float) -> str:
+    return f'''    (fp_rect (start {fmt(start[0])} {fmt(start[1])}) (end {fmt(end[0])} {fmt(end[1])})
+      (stroke (width {fmt(width)}) (type solid)) (fill none) (layer "{layer}")
+      (uuid {uid(f'{ref}-rect-{index}-{layer}')}))'''
+
+
+def j1_footprint() -> str:
+    outline = []
+    # KiCad 10.0.5 standard socket-strip body, fabrication outline and courtyard.
+    for layer, width, bounds in (
+        ("B.SilkS", 0.12, (-3.87, -1.33, 1.33, 11.49)),
+        ("B.Fab", 0.10, (-3.81, -1.27, 1.27, 11.43)),
+        ("B.CrtYd", 0.05, (-4.31, -1.77, 1.77, 11.93)),
+    ):
+        x0, y0, x1, y1 = bounds
+        outline.append(fp_rect("J1", len(outline), (x0, y0), (x1, y1), layer, width))
+    pads = "\n".join(pad("J1", pin) for pin in range(1, 11))
+    return f'''  (footprint "{J1_FOOTPRINT}"
+    (layer "B.Cu")
+    (uuid {uid('J1-footprint')})
+    (at {fmt(J1_ORIGIN_MM[0])} {fmt(J1_ORIGIN_MM[1])})
+    (descr "KiCad 10 standard 2x05 2.54 mm vertical through-hole socket")
+    (tags "Through hole socket strip THT 2x05 2.54mm double row")
+    (property "Reference" "J1" (at 0.5 12.7 0) (layer "B.SilkS")
+      (uuid {uid('J1-reference')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
+    (property "Value" "COMPUTE BLADE" (at -1.27 12.93 0) (layer "B.Fab")
+      (uuid {uid('J1-value')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
     (attr through_hole)
-    (fp_rect (start -1.27 -1.27) (end 3.81 {fmt(max_y + 1.27)})
-      (stroke (width 0.2) (type default)) (fill none) (layer "{silk}")
-      (uuid {uid(ref + '-silk-outline')}))
-    (fp_rect (start -1.27 -1.27) (end 3.81 {fmt(max_y + 1.27)})
-      (stroke (width 0.1) (type default)) (fill none) (layer "{fab}")
-      (uuid {uid(ref + '-fab-outline')}))
-    (fp_circle (center {fmt(marker_x)} 0) (end {fmt(marker_x + 0.45)} 0)
-      (stroke (width 0.25) (type default)) (fill none) (layer "{silk}")
-      (uuid {uid(ref + '-pin1-circle')}))
-    (fp_text user "1" (at {fmt(marker_x)} -1.05 0) (layer "{silk}")
-      (uuid {uid(ref + '-pin1-text')})
-      (effects (font (size 0.8 0.8) (thickness 0.14)){justify}))
-{chr(10).join(pads)}
+{chr(10).join(outline)}
+    (fp_text user "1" (at 0 -1.2 0) (layer "B.SilkS")
+      (uuid {uid('J1-pin1-text')}) (effects (font (size 0.8 0.8) (thickness 0.14)) (justify mirror)))
+{pads}
+    (model "{J1_MODEL}" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))
+  )'''
+
+
+def j2_footprint() -> str:
+    graphics = [
+        fp_rect("J2", 0, (-1.77, -1.77), (13.09, 14.47), "F.CrtYd", 0.05),
+        fp_rect("J2", 1, (3.93, -1.38), (6.69, 14.08), "F.SilkS", 0.12),
+        fp_rect("J2", 2, (4.04, -1.27), (6.58, 13.97), "F.Fab", 0.10),
+        fp_line("J2", 3, (-1.27, -1.27), (0.0, -1.27), "F.SilkS", 0.12),
+        fp_line("J2", 4, (-1.27, -1.27), (-1.27, 0.0), "F.SilkS", 0.12),
+    ]
+    for row in range(6):
+        y = row * PITCH_MM
+        graphics.append(fp_rect("J2", 10 + row, (6.69, y - 0.43), (12.69, y + 0.43), "F.SilkS", 0.12))
+        graphics.append(fp_rect("J2", 20 + row, (6.58, y - 0.32), (12.58, y + 0.32), "F.Fab", 0.10))
+    pads = "\n".join(pad("J2", pin) for pin in range(1, 13))
+    return f'''  (footprint "{J2_FOOTPRINT}"
+    (layer "F.Cu")
+    (uuid {uid('J2-footprint')})
+    (at {fmt(J2_ORIGIN_MM[0])} {fmt(J2_ORIGIN_MM[1])} {fmt(J2_FOOTPRINT_ROTATION_DEG)})
+    (descr "KiCad 10 standard 2x06 2.54 mm horizontal through-hole pin header, 6 mm mating pins")
+    (tags "Through hole angled pin header THT 2x06 2.54mm double row")
+    (property "Reference" "J2" (at 2.54 14.1 0) (layer "F.SilkS")
+      (uuid {uid('J2-reference')}) (effects (font (size 1 1) (thickness 0.15))))
+    (property "Value" "DDA GPS/RTC RIGHT-ANGLE" (at 7 13.8 0) (layer "F.Fab")
+      (uuid {uid('J2-value')}) (effects (font (size 1 1) (thickness 0.15))))
+    (attr through_hole)
+{chr(10).join(graphics)}
+    (fp_text user "1" (at -1.2 -1.0 0) (layer "F.SilkS")
+      (uuid {uid('J2-pin1-text')}) (effects (font (size 0.8 0.8) (thickness 0.14))))
+    (fp_text user "MATES +X ->" (at 8.2 13.55 0) (layer "F.SilkS")
+      (uuid {uid('J2-mating-direction')}) (effects (font (size 0.65 0.65) (thickness 0.11))))
+{pads}
+    (model "{J2_MODEL}" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))
   )'''
 
 
 def segment(start: tuple[float, float], end: tuple[float, float], layer: str,
             net: str, key: str) -> str:
+    width = POWER_TRACE_WIDTH_MM if net in POWER_NETS else SIGNAL_TRACE_WIDTH_MM
     return (
         f'  (segment (start {fmt(start[0])} {fmt(start[1])}) '
-        f'(end {fmt(end[0])} {fmt(end[1])}) (width {fmt(TRACE_WIDTH_MM)}) '
+        f'(end {fmt(end[0])} {fmt(end[1])}) (width {fmt(width)}) '
         f'(layer "{layer}") (net {NET_CODE[net]}) (uuid {uid(key)}))'
     )
 
@@ -137,92 +168,68 @@ def route_pair(pin: int) -> list[str]:
     net = NET_BY_PIN[pin]
     start = global_pad("J1", pin)
     end = global_pad("J2", pin)
+    if pin == 7:
+        lane_y = start[1] - 1.28
+        points = [start, (101.2, lane_y), (108.8, lane_y), end]
+        return [segment(points[i], points[i + 1], "F.Cu", net, f"route-{pin}-{i}") for i in range(3)]
     direction = -1.0 if pin % 2 else 1.0
     layer = "F.Cu" if pin % 2 else "B.Cu"
-    y_route = start[1] + direction * ROUTE_OFFSET_MM
-    p1 = (start[0] + 1.15, y_route)
-    p2 = (end[0] - 1.15, y_route)
-    points = [start, p1, p2, end]
+    lane_y = start[1] + direction * 1.10
+    points = [start, (start[0] + 1.15, lane_y), (end[0] - 1.15, lane_y), end]
     return [segment(points[i], points[i + 1], layer, net, f"route-{pin}-{i}") for i in range(3)]
 
 
 def build_board() -> str:
-    board_left = min(global_pad("J1", pin)[0] for pin in range(1, 11)) - 2.0
-    board_right = J2_ORIGIN[0] + 3.5
-    board_top = J2_ORIGIN[1] - 6 * PITCH_MM - 0.92
-    board_bottom = J1_ORIGIN[1] + 3.34
+    board_left = J1_ORIGIN_MM[0] - 4.60
+    board_right = J2_ORIGIN_MM[0] + 13.40
+    board_top = J1_ORIGIN_MM[1] - 2.05
+    board_bottom = J2_ORIGIN_MM[1] + 14.75
+    nets = ['  (net 0 "")'] + [f'  (net {code} "{net}")' for net, code in NET_CODE.items()]
+    routes = [route for pin in range(1, 11) for route in route_pair(pin)]
 
-    nets = ['  (net 0 "")'] + [
-        f'  (net {code} "{net}")' for net, code in NET_CODE.items()
-    ]
-    routes = []
-    for pin in range(1, 11):
-        routes.extend(route_pair(pin))
-
-    # J2.12 branches to the existing PPS route at its horizontal segment.
     p12 = global_pad("J2", 12)
-    pps_y = global_pad("J1", 7)[1] - ROUTE_OFFSET_MM
-    branch = [p12, (109.0, board_top + 1.2), (board_right - 1.0, board_top + 1.2),
-              (board_right - 1.0, pps_y), (108.85, pps_y)]
-    for i in range(len(branch) - 1):
-        routes.append(segment(branch[i], branch[i + 1], "F.Cu", NET_BY_PIN[7], f"pps-branch-{i}"))
+    pps_lane_y = global_pad("J1", 7)[1] - 1.28
+    branch = [p12, (114.5, p12[1]), (114.5, pps_lane_y), (108.8, pps_lane_y)]
+    routes.extend(
+        segment(branch[i], branch[i + 1], "F.Cu", NET_BY_PIN[7], f"pps-branch-{i}")
+        for i in range(len(branch) - 1)
+    )
 
     return f'''(kicad_pcb (version 20240108) (generator pcbnew)
-  (general (thickness 0.8))
+  (general (thickness {fmt(BOARD_THICKNESS_MM)}))
   (paper "A4")
   (layers
-    (0 "F.Cu" signal)
-    (31 "B.Cu" signal)
-    (36 "B.SilkS" user "b.silkscreen")
-    (37 "F.SilkS" user "f.silkscreen")
-    (38 "B.Mask" user)
-    (39 "F.Mask" user)
-    (44 "Edge.Cuts" user)
-    (46 "B.CrtYd" user "b.courtyard")
-    (47 "F.CrtYd" user "f.courtyard")
-    (48 "B.Fab" user)
-    (49 "F.Fab" user)
-  )
+    (0 "F.Cu" signal) (31 "B.Cu" signal)
+    (36 "B.SilkS" user "b.silkscreen") (37 "F.SilkS" user "f.silkscreen")
+    (38 "B.Mask" user) (39 "F.Mask" user) (44 "Edge.Cuts" user)
+    (46 "B.CrtYd" user "b.courtyard") (47 "F.CrtYd" user "f.courtyard")
+    (48 "B.Fab" user) (49 "F.Fab" user))
   (setup
     (stackup
-      (layer "F.SilkS" (type "Top Silk Screen"))
-      (layer "F.Mask" (type "Top Solder Mask"))
+      (layer "F.SilkS" (type "Top Silk Screen")) (layer "F.Mask" (type "Top Solder Mask"))
       (layer "F.Cu" (type "copper") (thickness 0.035))
       (layer "dielectric 1" (type "core") (thickness 0.73) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
       (layer "B.Cu" (type "copper") (thickness 0.035))
-      (layer "B.Mask" (type "Bottom Solder Mask"))
-      (layer "B.SilkS" (type "Bottom Silk Screen"))
-      (copper_finish "None")
-      (dielectric_constraints no))
-    (pad_to_mask_clearance 0)
-    (allow_soldermask_bridges_in_footprints no))
+      (layer "B.Mask" (type "Bottom Solder Mask")) (layer "B.SilkS" (type "Bottom Silk Screen"))
+      (copper_finish "None") (dielectric_constraints no))
+    (pad_to_mask_clearance 0) (allow_soldermask_bridges_in_footprints no))
 {chr(10).join(nets)}
-{footprint('J1', 'COMPUTE BLADE', 'Connector_PinSocket_2.54mm:PinSocket_2x05_P2.54mm_Vertical', 5, 'B.Cu', J1_ORIGIN)}
-{footprint('J2', 'DDA GPS/RTC', 'Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Vertical', 6, 'F.Cu', J2_ORIGIN)}
+{j1_footprint()}
+{j2_footprint()}
   (gr_rect (start {fmt(board_left)} {fmt(board_top)}) (end {fmt(board_right)} {fmt(board_bottom)})
-    (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts")
-    (uuid {uid('board-outline')}))
-  (gr_text "DDA GPS/RTC" (at {fmt(J2_ORIGIN[0] - 1.27)} {fmt(board_top + 0.6)} 0)
-    (layer "F.SilkS") (uuid {uid('front-label-dda')})
-    (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "PPS -> GPIO4" (at {fmt((board_left + board_right) / 2)} {fmt(board_bottom - 1.3)} 0)
-    (layer "F.SilkS") (uuid {uid('front-label-pps')})
-    (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "COMPUTE BLADE" (at {fmt(J1_ORIGIN[0] + 0.5)} {fmt(board_bottom - 1.3)} 0)
-    (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
-    (effects (font (size 0.8 0.8) (thickness 0.13)) (justify mirror)))
+    (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts") (uuid {uid('board-outline')}))
+  (gr_text "DDA GPS/RTC" (at 106.4 73.9 0) (layer "F.SilkS") (uuid {uid('front-label-dda')})
+    (effects (font (size 0.7 0.7) (thickness 0.12))))
+  (gr_text "PPS -> GPIO4" (at 106.0 58.75 0) (layer "F.SilkS") (uuid {uid('front-label-pps')})
+    (effects (font (size 0.65 0.65) (thickness 0.11))))
+  (gr_text "COMPUTE BLADE" (at 101.5 73.9 0) (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
+    (effects (font (size 0.7 0.7) (thickness 0.12)) (justify mirror)))
 {chr(10).join(routes)}
 )\n'''
 
 
 def build_report() -> str:
-    lines = [
-        "Compute Blade to DDA GPS/RTC adapter connectivity",
-        "Physical header pin numbers only",
-        "",
-        "Pin     Net",
-        "------- ---------------------------",
-    ]
+    lines = ["Compute Blade to DDA GPS/RTC adapter connectivity", "Physical header pin numbers only", "", "Pin     Net", "------- ---------------------------"]
     for pin in range(1, 11):
         lines.append(f"J1.{pin:<3} {net_for('J1', pin)}")
     for pin in range(1, 13):
@@ -236,7 +243,8 @@ def main() -> None:
     REPORT_PATH.write_text(build_report(), encoding="utf-8")
     print(f"Wrote {BOARD_PATH.relative_to(ROOT)}")
     print(f"Wrote {REPORT_PATH.relative_to(ROOT)}")
-    print(f"J1/J2 centerline offset: {CONNECTOR_OFFSET_MM:.1f} mm")
+    print(f"J1/J2 centerline offset: {J2_CENTERLINE_OFFSET_MM:.1f} mm")
+    print(f"J2 right-angle mating direction: +X; footprint rotation: {J2_FOOTPRINT_ROTATION_DEG:g} degrees")
 
 
 if __name__ == "__main__":

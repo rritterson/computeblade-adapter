@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 pcb/*-backups/
 pcb/_autosave-*
+mechanical/reference/*.step
+mechanical/reference/*.stl

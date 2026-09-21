@@ -18,7 +18,7 @@ class ConnectivityVerifierTests(unittest.TestCase):
     def test_generated_pcb_routes_reach_transformed_pads(self):
         self.assertEqual([], verifier.validate_pcb_routing(verifier.PCB_PATH))
 
-    def test_bottom_footprint_rotation_is_not_double_mirrored(self):
+    def test_bottom_j1_uses_explicit_standard_socket_coordinates(self):
         tree = verifier.parse_sexpr(verifier.PCB_PATH.read_text(encoding="utf-8"))
         j1 = next(
             footprint for footprint in verifier.children(tree, "footprint")
@@ -26,6 +26,18 @@ class ConnectivityVerifierTests(unittest.TestCase):
         )
         pad2 = next(pad for pad in verifier.children(j1, "pad") if pad[1] == "2")
         self.assertEqual((97.46, 60.16), verifier.transformed_pad(j1, pad2))
+
+    def test_j2_is_explicit_right_angle_footprint_pointing_plus_x(self):
+        tree = verifier.parse_sexpr(verifier.PCB_PATH.read_text(encoding="utf-8"))
+        j2 = next(
+            footprint for footprint in verifier.children(tree, "footprint")
+            if verifier.properties(footprint).get("Reference") == "J2"
+        )
+        self.assertEqual(
+            "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal",
+            j2[1],
+        )
+        self.assertEqual("0", verifier.child(j2, "at")[3])
 
     def test_power_short_is_rejected(self):
         bad = copy.deepcopy(self.good)

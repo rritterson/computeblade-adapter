@@ -124,14 +124,14 @@ def build_schematic() -> str:
     x11, y11 = pin_position(*j2_center, 6, 11)
 
     j1_fp = "Connector_PinSocket_2.54mm:PinSocket_2x05_P2.54mm_Vertical"
-    j2_fp = "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Vertical"
+    j2_fp = "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal"
     return f'''(kicad_sch (version 20231120) (generator eeschema)
   (uuid {stable_uuid('root-sheet')})
   (paper "A4")
   (title_block
     (title "Compute Blade to DDA GPS/RTC passive adapter")
-    (date "2026-09-20")
-    (rev "0.1")
+    (date "2026-09-21")
+    (rev "0.2")
     (company "Open hardware reference design")
     (comment 1 "PHYSICAL HEADER PIN NUMBERS ONLY"))
   (lib_symbols
@@ -142,7 +142,7 @@ def build_schematic() -> str:
   (no_connect (at {x11:.2f} {y11:.2f}) (uuid {stable_uuid('J2-no-connect-11')}))
 {placed_symbol('J1', 'COMPUTE BLADE', 'Conn_02x05_Odd_Even', j1_fp, *j1_center, 10)}
 {placed_symbol('J2', 'DDA GPS/RTC', 'Conn_02x06_Odd_Even', j2_fp, *j2_center, 12)}
-  (text "Physical pins 1-10 pass through one-to-one. J2.12 joins J1.7/J2.7; J2.11 is NC."
+  (text "Physical pins 1-10 map one-to-one. J2.12 joins J1.7/J2.7; J2.11 is NC. J2 is right-angle."
     (exclude_from_sim no) (at 86.36 101.60 0)
     (effects (font (size 1.27 1.27)) (justify bottom)))
   (sheet_instances
@@ -199,7 +199,7 @@ def build_project() -> str:
                     "name": "Default",
                     "pcb_color": "rgba(0, 0, 0, 0.000)",
                     "schematic_color": "rgba(0, 0, 0, 0.000)",
-                    "track_width": 0.20,
+                    "track_width": 0.25,
                     "via_diameter": 0.80,
                     "via_drill": 0.40,
                     "wire_width": 6,

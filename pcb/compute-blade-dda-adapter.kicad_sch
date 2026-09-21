@@ -3,8 +3,8 @@
   (paper "A4")
   (title_block
     (title "Compute Blade to DDA GPS/RTC passive adapter")
-    (date "2026-09-20")
-    (rev "0.1")
+    (date "2026-09-21")
+    (rev "0.2")
     (company "Open hardware reference design")
     (comment 1 "PHYSICAL HEADER PIN NUMBERS ONLY"))
   (lib_symbols
@@ -198,7 +198,7 @@
     (uuid c92f18fa-9875-572e-94d3-ffe193f5c39d)
     (property "Reference" "J2" (at 111.76 66.04 0) (effects (font (size 1.27 1.27))))
     (property "Value" "DDA GPS/RTC" (at 111.76 86.36 0) (effects (font (size 1.27 1.27))))
-    (property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Vertical" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
+    (property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
     (property "Datasheet" "~" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
     (property "Description" "Physical pin numbering; do not reinterpret as BCM numbering" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
     (pin "1" (uuid 1bb52d7e-1aaa-54a8-8802-336d45c3f243))
@@ -217,7 +217,7 @@
       (project "compute-blade-dda-adapter"
         (path "/42308dc1-1a86-53d5-952a-65642bf70d9f" (reference "J2") (unit 1))))
   )
-  (text "Physical pins 1-10 pass through one-to-one. J2.12 joins J1.7/J2.7; J2.11 is NC."
+  (text "Physical pins 1-10 map one-to-one. J2.12 joins J1.7/J2.7; J2.11 is NC. J2 is right-angle."
     (exclude_from_sim no) (at 86.36 101.60 0)
     (effects (font (size 1.27 1.27)) (justify bottom)))
   (sheet_instances
