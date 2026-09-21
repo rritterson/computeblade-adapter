@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  KICAD_IMAGE: kicad/kicad:10.0.5
+  KICAD_IMAGE: kicad/kicad:10.0.5-full
   SCH: pcb/compute-blade-dda-adapter.kicad_sch
   PCB: pcb/compute-blade-dda-adapter.kicad_pcb
 

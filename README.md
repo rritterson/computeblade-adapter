@@ -2,7 +2,7 @@
 
 This repository contains a passive, two-connector KiCad adapter that shifts a Dark Dragons Astronomy (DDA) GPS/RTC module inward from the edge of a Compute Blade. It uses **physical header pin numbers only**; GPIO names are descriptions, never pin-number substitutions.
 
-The project targets **KiCad 10.0.5** on the current stable KiCad 10 series. This is the newest immutable patch tag currently published for the official `kicad/kicad` Docker image; pinning it avoids a floating CI toolchain. Local KiCad is not required: GitHub Actions performs connectivity checks, ERC, DRC, plots, and manufacturing export with that container.
+The project targets **KiCad 10.0.5** on the current stable KiCad 10 series. This is the newest immutable patch tag currently published for the official `kicad/kicad` Docker image; pinning it avoids a floating CI toolchain. Local KiCad is not required: GitHub Actions performs connectivity checks, ERC, DRC, plots, and manufacturing export with the library-complete `kicad/kicad:10.0.5-full` container.
 
 > **Fabrication warning:** connector body dimensions, mating direction, component-side orientation, Compute Blade keep-outs, DDA board outline, and BladeRunner chassis clearance must be checked against real hardware or authoritative mechanical drawings. Generated files and even passing ERC/DRC do not make the design fabrication-ready.
 
@@ -51,6 +51,6 @@ The verifier parses embedded symbol pin geometry and schematic labels, then sepa
 
 ## GitHub Actions
 
-`.github/workflows/pcb-ci.yml` runs for pushes, pull requests, and manual dispatch. It uses the pinned `kicad/kicad:10.0.5` container to run schematic ERC and PCB DRC with violation exit codes, export schematic PDF and front/back board SVGs, generate Gerbers and Excellon drill files, and package manufacturing outputs as `compute-blade-dda-adapter-gerbers.zip`.
+`.github/workflows/pcb-ci.yml` runs for pushes, pull requests, and manual dispatch. It uses the pinned `kicad/kicad:10.0.5-full` container to run schematic ERC and PCB DRC with violation exit codes, export schematic PDF and front/back board SVGs, generate Gerbers and Excellon drill files, and package manufacturing outputs as `compute-blade-dda-adapter-gerbers.zip`. Project-local symbol and footprint library tables make the CLI library resolution deterministic.
 
 After a successful run, open the workflow run’s **Artifacts** section and download `compute-blade-dda-adapter-manufacturing` for the ZIP, or `compute-blade-dda-adapter-reports` for ERC/DRC reports and renders. CI success is required validation, but physical fit and orientation remain separate sign-off items.

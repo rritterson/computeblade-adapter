@@ -13,6 +13,9 @@ PCB_DIR = ROOT / "pcb"
 PROJECT_NAME = "compute-blade-dda-adapter"
 SCHEMATIC = PCB_DIR / f"{PROJECT_NAME}.kicad_sch"
 PROJECT = PCB_DIR / f"{PROJECT_NAME}.kicad_pro"
+SYMBOL_LIBRARY = PCB_DIR / "Adapter.kicad_sym"
+SYMBOL_TABLE = PCB_DIR / "sym-lib-table"
+FOOTPRINT_TABLE = PCB_DIR / "fp-lib-table"
 UUID_NAMESPACE = uuid.UUID("1b3ef2d8-4948-4c5f-a6a4-cbc14a42e582")
 
 NETS = {
@@ -38,8 +41,9 @@ def effects(hidden: bool = False) -> str:
     return f'(effects (font (size 1.27 1.27)){suffix})'
 
 
-def library_symbol(name: str, rows: int) -> str:
+def library_symbol(name: str, rows: int, *, qualified: bool = True) -> str:
     half_height = (rows + 1) * 1.27
+    symbol_name = f"Adapter:{name}" if qualified else name
     pins = []
     for row in range(rows):
         y = (rows - 1 - 2 * row) * 1.27
@@ -53,7 +57,7 @@ def library_symbol(name: str, rows: int) -> str:
         (name "Pin_{even}" {effects()})
         (number "{even}" {effects()}))'''
         )
-    return f'''    (symbol "Adapter:{name}"
+    return f'''    (symbol "{symbol_name}"
       (pin_names (offset 1.016) hide)
       (exclude_from_sim no)
       (in_bom yes)
@@ -146,6 +150,33 @@ def build_schematic() -> str:
 )\n'''
 
 
+def build_symbol_library() -> str:
+    symbols = "\n".join(
+        (
+            library_symbol("Conn_02x05_Odd_Even", 5, qualified=False),
+            library_symbol("Conn_02x06_Odd_Even", 6, qualified=False),
+        )
+    )
+    return f'''(kicad_symbol_lib (version 20231120) (generator kicad_symbol_editor)
+{symbols}
+)\n'''
+
+
+def build_symbol_table() -> str:
+    return '''(sym_lib_table
+  (version 7)
+  (lib (name "Adapter")(type "KiCad")(uri "${KIPRJMOD}/Adapter.kicad_sym")(options "")(descr "Project-local passive connector symbols"))
+)\n'''
+
+
+def build_footprint_table() -> str:
+    return '''(fp_lib_table
+  (version 7)
+  (lib (name "Connector_PinSocket_2.54mm")(type "KiCad")(uri "${KICAD10_FOOTPRINT_DIR}/Connector_PinSocket_2.54mm.pretty")(options "")(descr "KiCad standard 2.54 mm socket footprints"))
+  (lib (name "Connector_PinHeader_2.54mm")(type "KiCad")(uri "${KICAD10_FOOTPRINT_DIR}/Connector_PinHeader_2.54mm.pretty")(options "")(descr "KiCad standard 2.54 mm pin-header footprints"))
+)\n'''
+
+
 def build_project() -> str:
     project = {
         "board": {},
@@ -191,8 +222,14 @@ def main() -> None:
     PCB_DIR.mkdir(parents=True, exist_ok=True)
     SCHEMATIC.write_text(build_schematic(), encoding="utf-8")
     PROJECT.write_text(build_project(), encoding="utf-8")
+    SYMBOL_LIBRARY.write_text(build_symbol_library(), encoding="utf-8")
+    SYMBOL_TABLE.write_text(build_symbol_table(), encoding="utf-8")
+    FOOTPRINT_TABLE.write_text(build_footprint_table(), encoding="utf-8")
     print(f"Wrote {SCHEMATIC.relative_to(ROOT)}")
     print(f"Wrote {PROJECT.relative_to(ROOT)}")
+    print(f"Wrote {SYMBOL_LIBRARY.relative_to(ROOT)}")
+    print(f"Wrote {SYMBOL_TABLE.relative_to(ROOT)}")
+    print(f"Wrote {FOOTPRINT_TABLE.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
