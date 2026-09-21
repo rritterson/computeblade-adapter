@@ -1,0 +1,117 @@
+name: PCB CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  KICAD_IMAGE: kicad/kicad:10.0.5
+  SCH: pcb/compute-blade-dda-adapter.kicad_sch
+  PCB: pcb/compute-blade-dda-adapter.kicad_pcb
+
+jobs:
+  validate-and-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify deterministic generation and Python tests
+        run: |
+          python3 scripts/generate_schematic.py
+          python3 scripts/generate_or_update_pcb.py
+          python3 -m unittest discover -s scripts -p 'test_*.py' -v
+          git diff --exit-code -- pcb CONNECTIVITY.txt
+
+      - name: Verify exact physical-pin connectivity
+        run: python3 scripts/verify_connectivity.py | tee output/connectivity-report.txt
+
+      - name: Pull pinned KiCad CLI image
+        run: docker pull "$KICAD_IMAGE"
+
+      - name: Record KiCad version
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli version | tee output/kicad-version.txt
+
+      - name: Run schematic ERC
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli sch erc \
+            --severity-error --severity-warning --exit-code-violations \
+            -o output/erc.rpt "$SCH"
+
+      - name: Run PCB DRC
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli pcb drc \
+            --severity-error --severity-warning \
+            --exit-code-violations -o output/drc.rpt "$PCB"
+
+      - name: Export schematic and board views
+        run: |
+          mkdir -p output/views
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli sch export pdf \
+            --black-and-white -o output/views/schematic.pdf "$SCH"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli pcb export svg \
+            --mode-single --fit-page-to-board --exclude-drawing-sheet \
+            --layers F.Cu,F.SilkS,Edge.Cuts \
+            -o output/views/board-front.svg "$PCB"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli pcb export svg \
+            --mode-single --fit-page-to-board --exclude-drawing-sheet --mirror \
+            --layers B.Cu,B.SilkS,Edge.Cuts \
+            -o output/views/board-back.svg "$PCB"
+
+      - name: Export Gerbers and Excellon drill files
+        run: |
+          mkdir -p output/gerbers
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli pcb export gerbers \
+            --layers F.Cu,B.Cu,F.Mask,B.Mask,F.SilkS,B.SilkS,Edge.Cuts \
+            --output output/gerbers "$PCB"
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home -v "$PWD:/work" -w /work \
+            "$KICAD_IMAGE" kicad-cli pcb export drill \
+            --format excellon --excellon-units mm --generate-map \
+            --map-format pdf --generate-report \
+            --report-path output/drill-report.rpt \
+            --output output/gerbers "$PCB"
+          test -n "$(find output/gerbers -maxdepth 1 -type f -print -quit)"
+
+      - name: Package manufacturing files
+        working-directory: output/gerbers
+        run: zip -9 ../compute-blade-dda-adapter-gerbers.zip ./*
+
+      - name: Upload manufacturing artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compute-blade-dda-adapter-manufacturing
+          path: output/compute-blade-dda-adapter-gerbers.zip
+          if-no-files-found: error
+
+      - name: Upload reports and renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compute-blade-dda-adapter-reports
+          path: |
+            output/*.txt
+            output/*.rpt
+            output/views/
+          if-no-files-found: warn

@@ -1,0 +1,27 @@
+Compute Blade to DDA GPS/RTC adapter connectivity
+Physical header pin numbers only
+
+Pin     Net
+------- ---------------------------
+J1.1   3V3
+J1.2   5V_PIN2
+J1.3   SDA_GPIO2
+J1.4   5V_PIN4
+J1.5   SCL_GPIO3
+J1.6   GND_PIN6
+J1.7   PPS_GPIO4
+J1.8   UART_TX_TO_GPS_RX
+J1.9   GND_PIN9
+J1.10  UART_RX_FROM_GPS_TX
+J2.1   3V3
+J2.2   5V_PIN2
+J2.3   SDA_GPIO2
+J2.4   5V_PIN4
+J2.5   SCL_GPIO3
+J2.6   GND_PIN6
+J2.7   PPS_GPIO4
+J2.8   UART_TX_TO_GPS_RX
+J2.9   GND_PIN9
+J2.10  UART_RX_FROM_GPS_TX
+J2.11  NC
+J2.12  PPS_GPIO4
