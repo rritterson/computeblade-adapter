@@ -208,7 +208,7 @@ def build_board() -> str:
   (gr_text "PPS -> GPIO4" (at {fmt((board_left + board_right) / 2)} {fmt(board_bottom - 1.3)} 0)
     (layer "F.SilkS") (uuid {uid('front-label-pps')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
-  (gr_text "COMPUTE BLADE" (at {fmt(J1_ORIGIN[0] - 1.27)} {fmt(board_bottom - 1.3)} 0)
+  (gr_text "COMPUTE BLADE" (at {fmt(J1_ORIGIN[0] + 0.5)} {fmt(board_bottom - 1.3)} 0)
     (layer "B.SilkS") (uuid {uid('bottom-label-compute')})
     (effects (font (size 0.8 0.8) (thickness 0.13)) (justify mirror)))
 {chr(10).join(routes)}
