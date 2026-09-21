@@ -10,6 +10,7 @@ from pathlib import Path
 
 from design_config import (
     ADAPTER_Z_ABOVE_BLADE_MM,
+    BOARD_BOUNDS_RELATIVE_J1_MM,
     BLADERUNNER_CLEARANCE_Z,
     COMPUTE_BLADE_EXPOSED_POST_MM,
     COMPUTE_BLADE_HEADER_PIN_TIP_MM,
@@ -19,6 +20,9 @@ from design_config import (
     DDA_PIN1_TOP_SIDE_POSITION,
     DDA_PIN1_UNDERSIDE_POSITION,
     DDA_ROTATION_180,
+    DDA_ROTATION_AXIS,
+    DDA_ROTATION_DEG,
+    DDA_ROTATION_MATRIX,
     J1_INSERTION_DEPTH_MIN_MM,
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_SEATING_GAP_MM,
@@ -74,11 +78,11 @@ def write_svg(path: Path, boxes: list[Box], title: str) -> None:
         "compute_blade_local_envelope": "#4b75a5",
     }
     scale = 10
-    x0, z0 = -32.0, -8.0
-    width, height = 80.0, 56.0
+    y0, z0 = -32.0, -8.0
+    width, height = 62.0, 56.0
     context = [
         Box("compute_blade_local_envelope", -30.0, 0.0, -45.0, 45.0, -1.6, 0.0),
-        adapter_box((-4.6, 23.4, -2.05, 14.75)),
+        adapter_box(BOARD_BOUNDS_RELATIVE_J1_MM),
         *connector_boxes(),
     ]
     shapes = []
@@ -89,9 +93,9 @@ def write_svg(path: Path, boxes: list[Box], title: str) -> None:
         'fill="#d9efd9" fill-opacity="0.35" stroke="#4c9a4c" stroke-dasharray="7 4"/>'
     )
     for box in [*context, *boxes]:
-        x = (box.xmin - x0) * scale
+        x = (box.ymin - y0) * scale
         y = (height - (box.zmax - z0)) * scale
-        w = (box.xmax - box.xmin) * scale
+        w = (box.ymax - box.ymin) * scale
         h = (box.zmax - box.zmin) * scale
         shapes.append(
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
@@ -100,7 +104,7 @@ def write_svg(path: Path, boxes: list[Box], title: str) -> None:
     path.write_text(
         f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width*scale:.0f}" height="{height*scale:.0f}" viewBox="0 0 {width*scale:.0f} {height*scale:.0f}">
 <rect width="100%" height="100%" fill="white"/>
-<text x="15" y="24" font-family="sans-serif" font-size="15">{title} — side view (+X right, +Z up)</text>
+<text x="15" y="24" font-family="sans-serif" font-size="15">{title} — X-axis view (+Y right, +Z up; SSD side left)</text>
 <line x1="0" y1="{(height+z0)*scale:.1f}" x2="{width*scale}" y2="{(height+z0)*scale:.1f}" stroke="#aa0000" stroke-dasharray="6 4"/>
 {''.join(shapes)}
 <text x="15" y="48" font-family="sans-serif" font-size="11">Green dashed: conservative BladeRunner Z clearance; blue: local Compute Blade; purple: adapter</text>
@@ -139,6 +143,9 @@ def main() -> None:
             "underside_hole_view": DDA_PIN1_UNDERSIDE_POSITION,
         },
         "selected_dda_rotation_180": selected,
+        "dda_rotation_axis": DDA_ROTATION_AXIS,
+        "dda_rotation_degrees": DDA_ROTATION_DEG,
+        "dda_rotation_matrix": DDA_ROTATION_MATRIX,
         "variants": {},
     }
     for rotation in (False, True):

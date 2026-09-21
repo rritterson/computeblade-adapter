@@ -12,6 +12,7 @@ from design_config import (
     COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
     DDA,
     DDA_PIN1_TOP_EDGE_OFFSET_MM,
+    DDA_ROTATION_MATRIX,
     J1_SEATING_GAP_MM,
     J1_SOCKET_BODY_HEIGHT_MM,
     J1_ORIGIN_MM,
@@ -55,70 +56,99 @@ def relative_j2() -> tuple[float, float]:
     return J2_ORIGIN_MM[0] - J1_ORIGIN_MM[0], J2_ORIGIN_MM[1] - J1_ORIGIN_MM[1]
 
 
-def rotate_box_around_x(box: Box, center_y: float, center_z: float) -> Box:
-    """Rotate an axis-aligned box 180 degrees around an X-parallel axis."""
+def rotate_box_around_y(box: Box, center_x: float, center_z: float) -> Box:
+    """Rotate an axis-aligned box 180 degrees around the -Y mating axis."""
     return Box(
         box.name,
-        box.xmin,
-        box.xmax,
-        2 * center_y - box.ymax,
-        2 * center_y - box.ymin,
+        2 * center_x - box.xmax,
+        2 * center_x - box.xmin,
+        box.ymin,
+        box.ymax,
         2 * center_z - box.zmax,
         2 * center_z - box.zmin,
     )
 
 
+def transform_dda_local_box(box: Box, origin: tuple[float, float, float]) -> Box:
+    """Apply the configured DDA rotation matrix and translation to a local box."""
+    corners = []
+    for x in (box.xmin, box.xmax):
+        for y in (box.ymin, box.ymax):
+            for z in (box.zmin, box.zmax):
+                local = (x, y, z)
+                corners.append(
+                    tuple(
+                        origin[row]
+                        + sum(DDA_ROTATION_MATRIX[row][column] * local[column] for column in range(3))
+                        for row in range(3)
+                    )
+                )
+    return Box(
+        box.name,
+        min(point[0] for point in corners),
+        max(point[0] for point in corners),
+        min(point[1] for point in corners),
+        max(point[1] for point in corners),
+        min(point[2] for point in corners),
+        max(point[2] for point in corners),
+    )
+
+
 def dda_boxes(rotation_180: bool) -> list[Box]:
     j2_x, j2_y = relative_j2()
-    mating_x = j2_x + J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM
-    pcb_face_x = mating_x + DDA.pcb_surface_to_mating_plane
-    left_y = j2_y - DDA.first_column_from_left
+    # Footprint local +X maps to global -Y after its -90-degree board rotation.
+    mating_y = j2_y - J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM
+    left_x = j2_x - DDA.first_column_from_left
     # Confirmed top/component-side pin 1 is in the DDA row farther from its
     # top edge. It mates to the TSW physical-pin-1 (upper) row.
     top_z = J2_PIN1_CENTER_Z_MM - DDA_PIN1_TOP_EDGE_OFFSET_MM
-    center_y = j2_y + 5 * DDA.row_pitch / 2
+    center_x = j2_x + 5 * DDA.row_pitch / 2
     center_z = (J2_PIN1_CENTER_Z_MM + J2_PIN2_CENTER_Z_MM) / 2
 
-    boxes = [
+    origin = (left_x, mating_y, top_z)
+    # Local X follows the six-pin row, local Y goes top-to-bottom, and local Z
+    # goes from the socket mating plane toward/through the PCB.
+    local_boxes = [
         Box(
             "dda_pcb",
-            pcb_face_x,
-            pcb_face_x + DDA.pcb_thickness,
-            left_y,
-            left_y + DDA.pcb_width,
-            top_z,
-            top_z + DDA.pcb_height,
+            0.0,
+            DDA.pcb_width,
+            0.0,
+            DDA.pcb_height,
+            DDA.pcb_surface_to_mating_plane,
+            DDA.pcb_surface_to_mating_plane + DDA.pcb_thickness,
         ),
         Box(
             "dda_socket",
-            mating_x,
-            pcb_face_x,
-            center_y - DDA.socket_body_length / 2,
-            center_y + DDA.socket_body_length / 2,
-            top_z + DDA.top_to_socket_near_edge,
-            top_z + DDA.top_to_socket_near_edge + DDA.socket_body_depth,
+            DDA.pcb_width / 2 - DDA.socket_body_length / 2,
+            DDA.pcb_width / 2 + DDA.socket_body_length / 2,
+            DDA.top_to_socket_near_edge,
+            DDA.top_to_socket_near_edge + DDA.socket_body_depth,
+            0.0,
+            DDA.pcb_surface_to_mating_plane,
         ),
         Box(
             "dda_gnss_envelope",
-            pcb_face_x - DDA.gnss_envelope,
-            pcb_face_x,
-            left_y,
-            left_y + DDA.pcb_width,
-            top_z,
-            top_z + DDA.pcb_height,
+            0.0,
+            DDA.pcb_width,
+            0.0,
+            DDA.pcb_height,
+            DDA.pcb_surface_to_mating_plane - DDA.gnss_envelope,
+            DDA.pcb_surface_to_mating_plane,
         ),
         Box(
             "dda_battery_rtc_envelope",
-            pcb_face_x + DDA.pcb_thickness,
-            pcb_face_x + DDA.pcb_thickness + DDA.battery_rtc_envelope,
-            left_y,
-            left_y + DDA.pcb_width,
-            top_z,
-            top_z + DDA.pcb_height,
+            0.0,
+            DDA.pcb_width,
+            0.0,
+            DDA.pcb_height,
+            DDA.pcb_surface_to_mating_plane + DDA.pcb_thickness,
+            DDA.pcb_surface_to_mating_plane + DDA.pcb_thickness + DDA.battery_rtc_envelope,
         ),
     ]
+    boxes = [transform_dda_local_box(box, origin) for box in local_boxes]
     if rotation_180:
-        boxes = [rotate_box_around_x(box, center_y, center_z) for box in boxes]
+        boxes = [rotate_box_around_y(box, center_x, center_z) for box in boxes]
     return boxes
 
 
@@ -156,23 +186,28 @@ def connector_boxes() -> list[Box]:
         ),
         Box(
             "j2_body_elbow_keepout",
-            j2_x - 1.77,
-            j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
-            j2_y + J2_HEADER_PLASTIC_Y_BOUNDS_MM[0],
-            j2_y + J2_HEADER_PLASTIC_Y_BOUNDS_MM[1],
+            j2_x + J2_HEADER_PLASTIC_Y_BOUNDS_MM[0],
+            j2_x + J2_HEADER_PLASTIC_Y_BOUNDS_MM[1],
+            j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+            j2_y + 1.77,
             ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM,
             ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM + J2_BODY_HEIGHT_MM,
         ),
         Box(
             "j2_mating_posts",
-            j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
-            j2_x + J2_POST_TIP_LOCAL_X_MM,
-            j2_y - 0.32,
-            j2_y + 5 * DDA.row_pitch + 0.32,
+            j2_x - 0.32,
+            j2_x + 5 * DDA.row_pitch + 0.32,
+            j2_y - J2_POST_TIP_LOCAL_X_MM,
+            j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
             J2_PIN2_CENTER_Z_MM - 0.32,
             J2_PIN1_CENTER_Z_MM + 0.32,
         ),
     ]
+
+
+def dda_rotation_matrix() -> tuple[tuple[float, float, float], ...]:
+    """Return the exact DDA local-to-Compute-Blade rotation used everywhere."""
+    return DDA_ROTATION_MATRIX
 
 
 def adapter_box(board_bounds: tuple[float, float, float, float]) -> Box:

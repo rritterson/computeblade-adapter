@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import uuid
+import math
 from pathlib import Path
 
 from design_config import (
     BOARD_THICKNESS_MM,
+    BOARD_BOUNDS_RELATIVE_J1_MM,
     J1_FOOTPRINT,
     J1_MODEL,
     J1_ORIGIN_MM,
@@ -53,9 +55,12 @@ def local_pad(ref: str, pin: int) -> tuple[float, float]:
 def global_pad(ref: str, pin: int) -> tuple[float, float]:
     lx, ly = local_pad(ref, pin)
     ox, oy = J1_ORIGIN_MM if ref == "J1" else J2_ORIGIN_MM
-    # Both footprints are intentionally at zero degrees. J2's library-local
-    # +X direction is its right-angle mating direction.
-    return ox + lx, oy + ly
+    angle = 0.0 if ref == "J1" else J2_FOOTPRINT_ROTATION_DEG
+    radians = math.radians(angle)
+    return (
+        ox + math.cos(radians) * lx - math.sin(radians) * ly,
+        oy + math.sin(radians) * lx + math.cos(radians) * ly,
+    )
 
 
 def net_for(ref: str, pin: int) -> str | None:
@@ -147,7 +152,7 @@ def j2_footprint() -> str:
 {chr(10).join(graphics)}
     (fp_text user "1" (at -2.7 0 0) (layer "F.SilkS")
       (uuid {uid('J2-pin1-text')}) (effects (font (size 0.8 0.8) (thickness 0.14))))
-    (fp_text user "+X ->" (at 9 14 0) (layer "F.SilkS")
+    (fp_text user "MATES -> SSD" (at 9 14 0) (layer "F.SilkS")
       (uuid {uid('J2-mating-direction')}) (effects (font (size 0.8 0.8) (thickness 0.13))))
 {pads}
     (model "{J2_MODEL}" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))
@@ -168,28 +173,39 @@ def route_pair(pin: int) -> list[str]:
     net = NET_BY_PIN[pin]
     start = global_pad("J1", pin)
     end = global_pad("J2", pin)
-    if pin == 7:
-        lane_y = start[1] - 1.28
-        points = [start, (101.2, lane_y), (108.8, lane_y), end]
-        return [segment(points[i], points[i + 1], "F.Cu", net, f"route-{pin}-{i}") for i in range(3)]
-    direction = -1.0 if pin % 2 else 1.0
-    layer = "F.Cu" if pin % 2 else "B.Cu"
-    lane_y = start[1] + direction * (PITCH_MM / 2)
-    points = [start, (start[0] + 1.15, lane_y), (end[0] - 1.15, lane_y), end]
-    return [segment(points[i], points[i + 1], layer, net, f"route-{pin}-{i}") for i in range(3)]
+    row = (pin - 1) // 2
+    if pin % 2:
+        # Monotonic front-layer L-routes; later columns turn farther right, so
+        # the routes do not cross. Pin 7 is split at the PPS branch junction.
+        points = [start]
+        if pin == 7:
+            points.append((116.35, start[1]))
+        points.extend([(end[0], start[1]), end])
+        layer = "F.Cu"
+    else:
+        # Even pins escape left, fan through ordered top lanes, and approach
+        # their J2 pads from -Y. This avoids every through-hole odd-row pad.
+        escape_x = J1_ORIGIN_MM[0] - 4.0 - row * 1.2
+        lane_y = J1_ORIGIN_MM[1] - 6.0 - row * 1.2
+        points = [start, (escape_x, start[1]), (escape_x, lane_y), (end[0], lane_y), end]
+        layer = "B.Cu"
+    return [
+        segment(points[i], points[i + 1], layer, net, f"route-{pin}-{i}")
+        for i in range(len(points) - 1)
+        if points[i] != points[i + 1]
+    ]
 
 
 def build_board() -> str:
-    board_left = J1_ORIGIN_MM[0] - 4.60
-    board_right = J2_ORIGIN_MM[0] + 13.40
-    board_top = J1_ORIGIN_MM[1] - 2.05
-    board_bottom = J2_ORIGIN_MM[1] + 14.75
+    bounds = BOARD_BOUNDS_RELATIVE_J1_MM
+    board_left, board_right = J1_ORIGIN_MM[0] + bounds[0], J1_ORIGIN_MM[0] + bounds[1]
+    board_top, board_bottom = J1_ORIGIN_MM[1] + bounds[2], J1_ORIGIN_MM[1] + bounds[3]
     nets = ['  (net 0 "")'] + [f'  (net {code} "{net}")' for net, code in NET_CODE.items()]
     routes = [route for pin in range(1, 11) for route in route_pair(pin)]
 
     p12 = global_pad("J2", 12)
-    pps_lane_y = global_pad("J1", 7)[1] - 1.28
-    branch = [p12, (114.5, p12[1]), (114.5, pps_lane_y), (108.8, pps_lane_y)]
+    pps_join = (116.35, global_pad("J1", 7)[1])
+    branch = [p12, (p12[0], board_top + 1.0), (pps_join[0], board_top + 1.0), pps_join]
     routes.extend(
         segment(branch[i], branch[i + 1], "F.Cu", NET_BY_PIN[7], f"pps-branch-{i}")
         for i in range(len(branch) - 1)
@@ -218,7 +234,7 @@ def build_board() -> str:
 {j2_footprint()}
   (gr_rect (start {fmt(board_left)} {fmt(board_top)}) (end {fmt(board_right)} {fmt(board_bottom)})
     (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts") (uuid {uid('board-outline')}))
-  (gr_text "DDA GPS/RTC" (at 104 73.9 0) (layer "F.SilkS") (uuid {uid('front-label-dda')})
+  (gr_text "DDA GPS/RTC" (at 107 73.9 0) (layer "F.SilkS") (uuid {uid('front-label-dda')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
   (gr_text "PPS -> GPIO4" (at 102.8 58.75 0) (layer "F.SilkS") (uuid {uid('front-label-pps')})
     (effects (font (size 0.8 0.8) (thickness 0.13))))
@@ -244,7 +260,7 @@ def main() -> None:
     print(f"Wrote {BOARD_PATH.relative_to(ROOT)}")
     print(f"Wrote {REPORT_PATH.relative_to(ROOT)}")
     print(f"J1/J2 centerline offset: {J2_CENTERLINE_OFFSET_MM:.1f} mm")
-    print(f"J2 right-angle mating direction: +X; footprint rotation: {J2_FOOTPRINT_ROTATION_DEG:g} degrees")
+    print(f"J2 right-angle mating direction: -Y (SSD side); footprint rotation: {J2_FOOTPRINT_ROTATION_DEG:g} degrees")
 
 
 if __name__ == "__main__":

@@ -13,12 +13,14 @@ from design_config import (
     ADAPTER_Z_ABOVE_BLADE_MM,
     BLADERUNNER_CLEARANCE_Y,
     BLADERUNNER_CLEARANCE_Z,
+    BOARD_BOUNDS_RELATIVE_J1_MM,
     BLADE_PCB_ENVELOPE,
     COMPUTE_BLADE_EXPOSED_POST_MM,
     COMPUTE_BLADE_HEADER_PIN_TIP_MM,
     COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
     COMPUTE_BLADE_STEP_J3_ANCHOR_MM,
     COMPUTE_BLADE_STEP_J3_REF_DIRECTION,
+    COMPUTE_BLADE_STEP_BOUNDS_MM,
     DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM,
     DDA_MIN_ACCEPTABLE_INSERTION_MM,
     NEARBY_BLADE_COMPONENT_KEEP_OUTS,
@@ -27,6 +29,9 @@ from design_config import (
     DDA_PIN1_TOP_SIDE_POSITION,
     DDA_PIN1_UNDERSIDE_POSITION,
     DDA_ROTATION_180,
+    DDA_ROTATION_AXIS,
+    DDA_ROTATION_DEG,
+    DDA_ROTATION_MATRIX,
     J1_INSERTION_DEPTH_MIN_MM,
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_ORIGIN_MM,
@@ -35,12 +40,15 @@ from design_config import (
     J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM,
     J2_FOOTPRINT,
     J2_FOOTPRINT_ROTATION_DEG,
+    J2_MATING_DIRECTION,
     J2_MATING_POST_LENGTH_MM,
     J2_PIN1_CENTER_Z_MM,
     J2_PIN1_IS_UPPER_MATING_ROW,
     J2_PIN2_CENTER_Z_MM,
     J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
     J2_POST_TIP_LOCAL_X_MM,
+    MAX_ASSEMBLED_Z_DEPTH_MM,
+    SSD_SIDE_Y_SIGN,
 )
 from fetch_reference_cad import REFERENCES, REFERENCE_DIR, UPSTREAM_COMMIT, digest
 from mechanical_geometry import Box, adapter_box, connector_boxes, dda_boxes, relative_j2
@@ -139,7 +147,7 @@ def validate_footprint() -> list[str]:
     angle = float(at[3]) if at and len(at) > 3 else 0.0
     if angle % 360 != J2_FOOTPRINT_ROTATION_DEG % 360:
         errors.append(
-            f"J2 rotation must be {J2_FOOTPRINT_ROTATION_DEG:g} degrees so its mating axis is +X; found {angle:g}"
+            f"J2 rotation must be {J2_FOOTPRINT_ROTATION_DEG:g} degrees so its mating axis is -Y/SSD-side; found {angle:g}"
         )
     pads = {pad[1]: pad for pad in children(j2, "pad")}
     if "1" not in pads or "2" not in pads:
@@ -153,6 +161,8 @@ def validate_footprint() -> list[str]:
             float(pad2_at[1]), float(pad2_at[2])
         ) != (2.54, 0.0):
             errors.append("J2 physical pads 1 and 2 no longer match the explicit footprint orientation")
+    if J2_MATING_DIRECTION != (0.0, -1.0, 0.0):
+        errors.append("J2 mating direction must remain global -Y toward the SSD side")
     return errors
 
 
@@ -180,7 +190,7 @@ def check_references() -> tuple[list[str], list[str]]:
             notes.append(
                 "Compute Blade STEP J3 frame: origin "
                 + ", ".join(f"{value:.6f}" for value in anchor)
-                + "; local +X follows official STEP +X/USB-C-right"
+                + "; local +X follows the Compute Blade long axis"
             )
         except ValueError as exc:
             errors.append(str(exc))
@@ -203,6 +213,18 @@ def check_references() -> tuple[list[str], list[str]]:
 def validate_connector_constraints(selected_rotation_180: bool) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     notes: list[str] = []
+
+    if DDA_ROTATION_AXIS != "X" or abs(DDA_ROTATION_DEG - 90.0) > 1e-9:
+        errors.append("DDA must use R_x(+90 degrees)")
+    expected_rx90 = ((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0))
+    if DDA_ROTATION_MATRIX != expected_rx90:
+        errors.append("DDA transform matrix is not exactly R_x(+90 degrees)")
+    # R_y(±90) has a zero X/X diagonal entry; this explicitly rejects it.
+    if abs(DDA_ROTATION_MATRIX[0][0] - 1.0) > 1e-9:
+        errors.append("DDA transform resembles a Y-axis rotation")
+    if SSD_SIDE_Y_SIGN != -1 or J2_MATING_DIRECTION[1] != SSD_SIDE_Y_SIGN:
+        errors.append("DDA/J2 direction does not target the official frame's SSD-side -Y")
+    notes.append("Coordinate transform: R_x(+90 degrees); J2/DDA insertion axis global -Y (SSD side)")
 
     measured_exposed = COMPUTE_BLADE_HEADER_PIN_TIP_MM - COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM
     if abs(measured_exposed - COMPUTE_BLADE_EXPOSED_POST_MM) > 1e-9:
@@ -291,32 +313,32 @@ def variant_checks(rotation_180: bool) -> tuple[list[str], list[str]]:
         if box.zmin < BLADERUNNER_CLEARANCE_Z[0] or box.zmax > BLADERUNNER_CLEARANCE_Z[1]:
             errors.append(f"{box.name} exceeds the conservative BladeRunner Z clearance")
 
-    j2_x, _ = relative_j2()
-    if min(box.xmin for box in boxes) <= j2_x:
-        errors.append("DDA does not extend to the intended +X/right side of J2")
+    j2_x, j2_y = relative_j2()
+    if max(box.ymax for box in boxes) >= j2_y:
+        errors.append("DDA does not extend exclusively toward the SSD-side -Y of J2")
 
     socket = next(box for box in boxes if box.name == "dda_socket")
     pcb = next(box for box in boxes if box.name == "dda_pcb")
-    expected_face = j2_x + J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM
-    if abs(socket.xmin - expected_face) > 1e-6:
+    expected_face = j2_y - J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM
+    if abs(socket.ymax - expected_face) > 1e-6:
         errors.append("DDA socket mating face does not coincide with the J2 mating plane")
-    if abs(pcb.xmin - expected_face - DDA.pcb_surface_to_mating_plane) > 1e-6:
+    if abs(pcb.ymax - (expected_face - DDA.pcb_surface_to_mating_plane)) > 1e-6:
         errors.append("DDA PCB-to-socket mating-plane offset is not 8.3 mm")
 
     connectors = connector_boxes()
     header_body = next(box for box in connectors if box.name == "j2_body_elbow_keepout")
     posts = next(box for box in connectors if box.name == "j2_mating_posts")
-    insertion = max(0.0, min(posts.xmax, socket.xmax) - max(posts.xmin, socket.xmin))
+    insertion = max(0.0, min(posts.ymax, socket.ymax) - max(posts.ymin, socket.ymin))
     if abs(insertion - DDA_MIN_ACCEPTABLE_INSERTION_MM) > 1e-6:
         errors.append("modeled TSW-to-DDA insertion is not exactly the 3.40 mm requirement")
     if socket.overlaps(header_body):
         errors.append("DDA socket intersects the simplified TSW plastic body/elbow keepout")
-    axial_clearance = socket.xmin - header_body.xmax
+    axial_clearance = header_body.ymin - socket.ymax
     if axial_clearance < 0:
         errors.append("TSW body/elbow blocks the required 3.40 mm DDA insertion")
     if abs(axial_clearance - J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM) > 1e-6:
         errors.append("modeled J2 axial body clearance does not match the post-length margin")
-    if abs(posts.xmax - (j2_x + J2_POST_TIP_LOCAL_X_MM)) > 1e-6:
+    if abs(posts.ymin - (j2_y - J2_POST_TIP_LOCAL_X_MM)) > 1e-6:
         errors.append("TSW post-tip position does not match its manufacturer post length")
 
     bounds = (
@@ -328,6 +350,39 @@ def variant_checks(rotation_180: bool) -> tuple[list[str], list[str]]:
         f"DDA {'rot180' if rotation_180 else 'default'} envelope: "
         f"X {bounds[0]:.2f}..{bounds[1]:.2f}, Y {bounds[2]:.2f}..{bounds[3]:.2f}, "
         f"Z {bounds[4]:.2f}..{bounds[5]:.2f} mm"
+    )
+    global_boxes = [
+        Box(
+            box.name,
+            box.xmin + COMPUTE_BLADE_STEP_J3_ANCHOR_MM[0],
+            box.xmax + COMPUTE_BLADE_STEP_J3_ANCHOR_MM[0],
+            box.ymin + COMPUTE_BLADE_STEP_J3_ANCHOR_MM[1],
+            box.ymax + COMPUTE_BLADE_STEP_J3_ANCHOR_MM[1],
+            box.zmin + COMPUTE_BLADE_STEP_J3_ANCHOR_MM[2],
+            box.zmax + COMPUTE_BLADE_STEP_J3_ANCHOR_MM[2],
+        )
+        for box in [*boxes, *connector_boxes()]
+    ]
+    bx = COMPUTE_BLADE_STEP_BOUNDS_MM
+    assembly_bounds = (
+        min(bx[0], *(box.xmin for box in global_boxes)),
+        max(bx[1], *(box.xmax for box in global_boxes)),
+        min(bx[2], *(box.ymin for box in global_boxes)),
+        max(bx[3], *(box.ymax for box in global_boxes)),
+        min(bx[4], *(box.zmin for box in global_boxes)),
+        max(bx[5], *(box.zmax for box in global_boxes)),
+    )
+    z_depth = assembly_bounds[5] - assembly_bounds[4]
+    if z_depth > MAX_ASSEMBLED_Z_DEPTH_MM:
+        errors.append(
+            f"assembled Z depth {z_depth:.3f} mm exceeds {MAX_ASSEMBLED_Z_DEPTH_MM:.3f} mm; wrong-axis rotation suspected"
+        )
+    notes.append(
+        "Assembled bounds without BladeRunner frame: "
+        f"X {assembly_bounds[0]:.3f}..{assembly_bounds[1]:.3f}, "
+        f"Y {assembly_bounds[2]:.3f}..{assembly_bounds[3]:.3f}, "
+        f"Z {assembly_bounds[4]:.3f}..{assembly_bounds[5]:.3f} mm; "
+        f"total Z depth {z_depth:.3f} mm"
     )
     notes.append(
         f"Simplified TSW body/elbow axial clearance at "
@@ -359,6 +414,8 @@ def main() -> int:
     notes.extend(constraint_notes)
     try:
         adapter = adapter_box(board_bounds())
+        if board_bounds() != BOARD_BOUNDS_RELATIVE_J1_MM:
+            errors.append("generated PCB outline differs from the shared configured board bounds")
         notes.append(f"Adapter PCB envelope: {adapter}")
         for box in [adapter, *connector_boxes()]:
             if box.ymin < BLADERUNNER_CLEARANCE_Y[0] or box.ymax > BLADERUNNER_CLEARANCE_Y[1]:

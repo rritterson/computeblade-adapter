@@ -1,6 +1,6 @@
 # Compute Blade ↔ DDA GPS/RTC adapter, upright revision
 
-This repository contains a passive, two-connector KiCad adapter. The adapter PCB remains parallel to the Compute Blade PCB; right-angle J2 turns the Dark Dragons Astronomy (DDA) GPS/RTC module through 90° so it stands upright and projects toward the Compute Blade USB-C/right side. GPIO names are descriptions only: every connection uses **physical header pin numbers**.
+This repository contains a passive, two-connector KiCad adapter. The adapter PCB remains parallel to the Compute Blade PCB; right-angle J2 turns the Dark Dragons Astronomy (DDA) GPS/RTC module through 90° so it stands upright and projects toward the Compute Blade SSD/M.2 connector side. GPIO names are descriptions only: every connection uses **physical header pin numbers**.
 
 The project targets **KiCad 10.0.5** with the pinned `kicad/kicad:10.0.5-full` CI image. Local KiCad is not required.
 
@@ -10,11 +10,33 @@ The project targets **KiCad 10.0.5** with the pinned `kicad/kicad:10.0.5-full` C
 
 - **J1:** [Samtec SLW-105-01-G-D](https://www.samtec.com/products/slw-105-01-g-d), a vertical 2x5 female through-hole socket on the adapter bottom. The PCB uses KiCad's `Connector_PinSocket_2.54mm:PinSocket_2x05_P2.54mm_Vertical` footprint and generic standard STEP model.
 - **J2:** [Samtec TSW-106-08-G-D-RA](https://www.samtec.com/products/tsw-106-08-g-d-ra), a right-angle 2x6 male through-hole header on the adapter top. The PCB uses KiCad's `Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal` footprint and generic standard STEP model.
-- `J2_FOOTPRINT_ROTATION_DEG = 0.0` points J2's mating posts toward assembly +X, explicitly aligned to the official Compute Blade J3 STEP frame's +X/USB-C-right direction.
+- `J2_FOOTPRINT_ROTATION_DEG = -90.0` maps J2's local +X mating posts to assembly −Y, toward the SSD/M.2 connector side.
 - J1 and J2 pad-row centerlines remain 10.0 mm apart. `J2_CENTERLINE_OFFSET_MM` in `scripts/design_config.py` controls that offset.
 - The board is two-layer, 0.8 mm FR-4 with nominal 1 oz / 35 µm copper. Power and ground routes are 0.50 mm; signal routes are 0.25 mm.
 
 The KiCad 3D connector models are not manufacturer-controlled models for these exact orderable parts. Samtec offers configured CAD through its product portal, but the repository validates dimensions available in its manufacturer series drawings and conservatively models the remaining interface.
+
+## Coordinate system and DDA transform
+
+One coordinate convention is used by PCB placement, collision validation, STEP export, SVG generation, and PNG rendering:
+
+```text
+X = Compute Blade long axis
+Y = Compute Blade width
+Z = outward normal from the Compute Blade PCB
+DDA rotation = +90 degrees about X
+DDA extension direction = toward the SSD/M.2 connector side (-Y)
+```
+
+The DDA-local X axis follows its six-pin row, local Y runs from its measured top edge toward its bottom edge, and local Z runs from the socket mating face toward the DDA PCB. The selected transform is exactly:
+
+```text
+R_x(+90°) = [[1, 0,  0],
+             [0, 0, -1],
+             [0, 1,  0]]
+```
+
+This maps the DDA socket-normal and J2 insertion direction to global −Y and maps the DDA top-to-bottom dimension to +Z. `DDA_ROTATION_AXIS`, `DDA_ROTATION_DEG`, `DDA_ROTATION_MATRIX`, and `J2_MATING_DIRECTION` in `scripts/design_config.py` are imported rather than redefined by the validators and model generators. Regression tests explicitly reject a ±90° Y-axis transform.
 
 ## Exact electrical mapping
 
@@ -46,7 +68,7 @@ DDA pin 1 is physically confirmed:
 
 The DDA geometric row farther from its measured top PCB edge (6.04 mm) is therefore the physical-pin-1 row. The Samtec TSW series drawing identifies physical pin 1 as the upper mating row in a double-row right-angle part. The selected assembly maps those same physical positions; CI checks the footprint rotation, pad 1 and pad 2 coordinates, TSW upper/lower row relationship, DDA top/underside views, and selected orientation. Electrical pins are never inferred or renumbered from this geometry.
 
-`DDA_ROTATION_180 = False` is the confirmed/default assembly. The generator still creates a `rot180` collision model for comparison, but selecting it now fails validation because it contradicts the confirmed pin-1 orientation (and it also crosses the conservative lower BladeRunner clearance). The alternate is diagnostic only, not an electrical or fabrication variant.
+`DDA_ROTATION_180 = False` is the confirmed/default assembly. The generator still creates a `rot180` collision model around J2's −Y mating axis for comparison, but selecting it fails validation because it contradicts the confirmed pin-1 orientation (and crosses the conservative lower BladeRunner clearance). The alternate is diagnostic only, not an electrical or fabrication variant.
 
 ## Dimension provenance
 
@@ -117,13 +139,15 @@ The DDA model treats the GNSS-side envelope as facing the mating plane and the b
 - `models/bladerunner/19-inch/left bracket.stl`
 - `models/bladerunner/19-inch/right bracket.stl`
 
-The files are downloaded into ignored `mechanical/reference/` storage. The validator now parses J3's actual placement from the official STEP: origin `(133.075077, 18.325065, 0.0)` mm and a +X reference direction aligned with the intended USB-C/right direction. Simplified adapter/DDA coordinates are transformed into and reported in this J3-anchored frame. The measured 2.5 mm plastic height and 9.0 mm pin-tip height are hard constraints rather than values inferred from tessellation.
+The files are downloaded into ignored `mechanical/reference/` storage. The validator parses J3's actual placement from the official STEP: origin `(133.075077, 18.325065, 0.0)` mm, +X along the blade long axis, and −Y toward the SSD/M.2 side shown in the [official assembly documentation](https://docs.computeblade.com/blade/getting-started/assembly). Simplified adapter/DDA coordinates are transformed into and reported in this J3-anchored frame. The measured 2.5 mm plastic height and 9.0 mm pin-tip height are hard constraints rather than values inferred from tessellation.
 
-This remains conservative box/mesh validation, not full B-Rep interference analysis. It authenticates the STEP and BladeRunner meshes, checks the J3 anchor/direction, measured header stack, SLW insertion minimum, the 3.40 mm J2 engagement requirement, 2.442 mm post margin, simplified body/elbow separation, confirmed pin-1 orientation, nearby-component keepouts, +X/right extension, DDA socket-to-PCB offset, and BladeRunner Y/Z envelope. The selected upright orientation passes these simplified checks.
+This remains conservative box/mesh validation, not full B-Rep interference analysis. It authenticates the STEP and BladeRunner meshes, checks the J3 anchor/direction, measured header stack, SLW insertion minimum, the 3.40 mm J2 engagement requirement, 2.442 mm post margin, simplified body/elbow separation, confirmed pin-1 orientation, nearby-component keepouts, −Y/SSD-side extension, DDA socket-to-PCB offset, and BladeRunner Y/Z envelope. It also enforces a 36.0 mm maximum assembled Z-depth regression limit so a wrong-axis transform cannot silently return. The corrected selected orientation passes these simplified checks.
+
+For the selected state, validation reports the full assembly (excluding the optional BladeRunner clearance frame) at X `−0.500..250.016` mm, Y `−5.557..42.505` mm, and Z `−5.900..28.892` mm in the official STEP frame. Those spans are approximately 250.516 × 48.062 × 34.792 mm; total Z depth is **34.792 mm**.
 
 ## Inspecting the assembled 3D model
 
-`scripts/generate_assembly_model.py` produces one inspectable assembly at `mechanical/generated/full_assembly.step`. It imports and re-exports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the same constants and box transforms used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
+`scripts/generate_assembly_model.py` produces one inspectable assembly at `mechanical/generated/full_assembly.step`. It imports and re-exports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the exact `R_x(+90°)` and −Y mating-axis state used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
 
 The assembly tree and colors distinguish:
 
@@ -132,7 +156,7 @@ The assembly tree and colors distinguish:
 - black: approximate connector/socket plastic;
 - gold: dimension-driven pins and simplified bent tails;
 - red: confirmed DDA physical pin 1;
-- magenta/yellow: J1 and J2 mating-axis markers.
+- magenta/yellow: J1 and J2 −Y mating-axis markers.
 
 J1 and J2 are dimension-driven approximations using the SLW/TSW manufacturer dimensions plus the actual KiCad pad positions. Exact configured Samtec STEP downloads are not available for deterministic unauthenticated CI use. The DDA is the existing measured simplified model. The adapter model represents board outline, holes, and thickness; copper and cosmetic board details are intentionally omitted because they do not change the mechanical stack.
 

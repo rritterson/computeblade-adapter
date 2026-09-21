@@ -24,6 +24,9 @@ from design_config import (
     BLADERUNNER_CLEARANCE_Z,
     BOARD_THICKNESS_MM,
     COMPUTE_BLADE_STEP_J3_ANCHOR_MM,
+    DDA_ROTATION_AXIS,
+    DDA_ROTATION_DEG,
+    DDA_ROTATION_MATRIX,
     DDA_MIN_ACCEPTABLE_INSERTION_MM,
     DDA_ROTATION_180,
     J1_ORIGIN_MM,
@@ -34,6 +37,8 @@ from design_config import (
     J2_MATING_POST_LENGTH_MM,
     J2_PIN1_CENTER_Z_MM,
     J2_PIN2_CENTER_Z_MM,
+    J2_MATING_DIRECTION,
+    MAX_ASSEMBLED_Z_DEPTH_MM,
 )
 from fetch_reference_cad import REFERENCE_DIR
 from mechanical_geometry import Box, connector_boxes, dda_boxes, relative_j2
@@ -65,7 +70,7 @@ RENDERS = {
         "up": (0.0, 0.0, 1.0), "scale": 100.0,
     },
     "render_front.png": {
-        "offset": (320.0, 0.0, 20.0), "focus": (18.0, 0.0, 10.0),
+        "offset": (320.0, 0.0, 20.0), "focus": (18.0, -7.0, 10.0),
         "up": (0.0, 0.0, 1.0), "scale": 35.0,
     },
     "render_iso.png": {
@@ -77,7 +82,7 @@ RENDERS = {
         "up": (0.0, 0.0, 1.0), "scale": 15.0,
     },
     "render_j2_closeup.png": {
-        "offset": (52.0, -30.0, 35.0), "focus": (20.0, 6.0, 12.0),
+        "offset": (45.0, -48.0, 34.0), "focus": (16.0, -10.0, 13.0),
         "up": (0.0, 0.0, 1.0), "scale": 22.0,
     },
 }
@@ -211,10 +216,10 @@ def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
     j2_x, j2_y = relative_j2()
     body = Box(
         "j2_plastic",
-        ax + j2_x + J2_HEADER_PLASTIC_BACK_LOCAL_X_MM,
-        ax + j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
-        ay + j2_y + J2_HEADER_PLASTIC_Y_BOUNDS_MM[0],
-        ay + j2_y + J2_HEADER_PLASTIC_Y_BOUNDS_MM[1],
+        ax + j2_x + J2_HEADER_PLASTIC_Y_BOUNDS_MM[0],
+        ax + j2_x + J2_HEADER_PLASTIC_Y_BOUNDS_MM[1],
+        ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
+        ay + j2_y - J2_HEADER_PLASTIC_BACK_LOCAL_X_MM,
         az + ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM,
         az + ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM + J2_BODY_HEIGHT_MM,
     )
@@ -226,12 +231,12 @@ def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
         center_z = J2_PIN1_CENTER_Z_MM if pin % 2 else J2_PIN2_CENTER_Z_MM
         post_shapes.append(
             cq.Solid.makeBox(
+                pin_size,
                 J2_MATING_POST_LENGTH_MM,
                 pin_size,
-                pin_size,
                 cq.Vector(
-                    ax + j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
-                    ay + py - pin_size / 2,
+                    ax + px - pin_size / 2,
+                    ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM - J2_MATING_POST_LENGTH_MM,
                     az + center_z - pin_size / 2,
                 ),
             )
@@ -251,12 +256,12 @@ def j2_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, 
         )
         tail_shapes.append(
             cq.Solid.makeBox(
-                max(0.1, j2_x + J2_HEADER_PLASTIC_BACK_LOCAL_X_MM - px),
                 pin_size,
+                max(0.1, py - (j2_y - J2_HEADER_PLASTIC_BACK_LOCAL_X_MM)),
                 pin_size,
                 cq.Vector(
-                    ax + px,
-                    ay + py - pin_size / 2,
+                    ax + px - pin_size / 2,
+                    ay + j2_y - J2_HEADER_PLASTIC_BACK_LOCAL_X_MM,
                     az + center_z - pin_size / 2,
                 ),
             )
@@ -283,7 +288,7 @@ def dda_shapes(cq: Any) -> list[tuple[str, Any, Any]]:
 
 def marker_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[str, Any, Any]]:
     ax, ay, az = COMPUTE_BLADE_STEP_J3_ANCHOR_MM
-    j2_x, _ = relative_j2()
+    _, j2_y = relative_j2()
     pin1_x, pin1_y = pads["J2.1"]
     j1_axis = cq.Solid.makeCylinder(
         0.16, 11.0, cq.Vector(ax, ay, az), cq.Vector(0, 0, 1)
@@ -291,20 +296,20 @@ def marker_shapes(cq: Any, pads: dict[str, tuple[float, float]]) -> list[tuple[s
     j2_axis = cq.Solid.makeCylinder(
         0.16,
         J2_MATING_POST_LENGTH_MM + 4.0,
-        cq.Vector(ax + j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM, ay, az + J2_PIN1_CENTER_Z_MM),
-        cq.Vector(1, 0, 0),
+        cq.Vector(ax + pin1_x, ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM, az + J2_PIN1_CENTER_Z_MM),
+        cq.Vector(*J2_MATING_DIRECTION),
     )
     pin1 = cq.Solid.makeBox(
         0.9, 0.9, 0.9,
         cq.Vector(
-            ax + j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM,
-            ay + pin1_y - 0.45,
+            ax + pin1_x - 0.45,
+            ay + j2_y - J2_HEADER_PLASTIC_FACE_LOCAL_X_MM - J2_MATING_POST_LENGTH_MM + DDA_MIN_ACCEPTABLE_INSERTION_MM - 0.45,
             az + J2_PIN1_CENTER_Z_MM - 0.45,
         ),
     )
     return [
         ("MARKER_J1_mating_axis", j1_axis, cq.Color(0.85, 0.15, 0.85)),
-        ("MARKER_J2_plus_X_mating_axis", j2_axis, cq.Color(0.95, 0.70, 0.05)),
+        ("MARKER_J2_minus_Y_SSD_side_mating_axis", j2_axis, cq.Color(0.95, 0.70, 0.05)),
         ("MARKER_DDA_physical_pin_1", pin1, cq.Color(0.90, 0.05, 0.05)),
     ]
 
@@ -435,6 +440,13 @@ def main() -> int:
             cq, FULL_ASSEMBLY_WITH_BLADERUNNER, clearance_names, blade_solids + 14
         ),
     }
+    actual_bounds = verification[FULL_ASSEMBLY.name]["bounds_mm"]
+    z_depth = actual_bounds["z"][1] - actual_bounds["z"][0]
+    if z_depth > MAX_ASSEMBLED_Z_DEPTH_MM:
+        raise RuntimeError(
+            f"full assembly Z depth {z_depth:.3f} mm exceeds regression limit "
+            f"{MAX_ASSEMBLED_Z_DEPTH_MM:.3f} mm"
+        )
     if not args.skip_renders:
         os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
         render_all(to_vtk, assembly)
@@ -448,6 +460,11 @@ def main() -> int:
             "j1_adapter_pcb_underside_z_mm": ADAPTER_Z_ABOVE_BLADE_MM,
             "j2_mating_post_length_mm": J2_MATING_POST_LENGTH_MM,
             "selected_dda_rotation_180": DDA_ROTATION_180,
+            "dda_rotation_axis": DDA_ROTATION_AXIS,
+            "dda_rotation_degrees": DDA_ROTATION_DEG,
+            "dda_rotation_matrix": DDA_ROTATION_MATRIX,
+            "j2_mating_direction": J2_MATING_DIRECTION,
+            "full_assembly_total_z_depth_mm": z_depth,
             "adapter_board_bounds_relative_j1_mm": [xmin, xmax, ymin, ymax],
             "dda_boxes_relative_j1_mm": [asdict(box) for box in dda_boxes(False)],
         },
