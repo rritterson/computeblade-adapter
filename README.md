@@ -68,6 +68,26 @@ The [SLW manufacturer series drawing](https://suddendocs.samtec.com/prints/slw-1
 
 The [TSW manufacturer series drawing](https://suddendocs.samtec.com/prints/tsw-xxx-xx-xxx-x-xx-xxx-mkt.pdf) gives the `-08` right-angle post as nominally 0.230 in / **5.842 mm**, the double-row body height as 0.219 in / **5.56 mm** reference, locates pin 1 at 0.040 in / **1.0 mm** reference from the corresponding body edge, and shows physical pin 1 as the upper right-angle row. The exact product page confirms 12 pins, two rows, right-angle orientation, 2.54 mm pitch, and 0.635 mm square posts.
 
+### User-defined acceptance requirement
+
+The DDA socket is physically known to accept at least the Compute Blade's full **6.5 mm** exposed post. Although its spring contacts begin retaining before full seating, the user's conservative minimum for strong seating and retention is the point where no more than **3.1 mm** remains exposed:
+
+```text
+6.500 mm Compute Blade exposed post
+- 3.100 mm maximum acceptable remaining exposure
+= 3.400 mm DDA minimum acceptable insertion
+```
+
+`DDA_MIN_ACCEPTABLE_INSERTION_MM = 3.40` is a design requirement and CI assertion, not an estimated contact depth. Against the TSW's 5.842 mm mating post:
+
+```text
+5.842 mm TSW mating post
+- 3.400 mm required DDA insertion
+= 2.442 mm remaining free post length
+```
+
+The post-length calculation proves sufficient usable pin length only. The separate body-clearance check places the DDA socket at exactly 3.40 mm insertion and tests it against a conservative simplified TSW plastic-body/right-angle-elbow keepout.
+
 ### Calculated
 
 The nominal adapter-PCB underside height above the Compute Blade PCB is:
@@ -84,7 +104,7 @@ The adapter top surface is nominally **7.872 mm** above the Compute Blade PCB be
 
 ### Explicit modeling assumptions
 
-The DDA socket's internal contact wipe/insertion requirement is not known. `J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM = 2.54` is used only for the collision model. With the 5.842 mm TSW post this leaves 3.302 mm between the modeled DDA mating face and TSW plastic face. That proves clearance only for simplified axial boxes; it does not prove full insertion or exact elbow/body compatibility.
+At the required 3.40 mm insertion, the simplified model leaves **2.442 mm** axial clearance between the DDA socket body and the TSW body/elbow keepout. This passes the repository's conservative box-model check. Because the exact configured TSW CAD and the DDA socket-body solid are not present, exact TSW plastic/elbow interaction at 3.40 mm insertion still requires physical confirmation; the positive simplified clearance is not a claim of exact full-mating validation.
 
 The DDA model treats the GNSS-side envelope as facing the mating plane and the battery/RTC envelope as facing away in the selected assembly. Both are conservative full-face boxes. Pin numbering remains a separate electrical concern.
 
@@ -99,7 +119,7 @@ The DDA model treats the GNSS-side envelope as facing the mating plane and the b
 
 The files are downloaded into ignored `mechanical/reference/` storage. The validator now parses J3's actual placement from the official STEP: origin `(133.075077, 18.325065, 0.0)` mm and a +X reference direction aligned with the intended USB-C/right direction. Simplified adapter/DDA coordinates are transformed into and reported in this J3-anchored frame. The measured 2.5 mm plastic height and 9.0 mm pin-tip height are hard constraints rather than values inferred from tessellation.
 
-This remains conservative box/mesh validation, not full B-Rep interference analysis. It authenticates the STEP and BladeRunner meshes, checks the J3 anchor/direction, measured header stack, SLW insertion minimum, J2 post insertion assumption and plastic separation, confirmed pin-1 orientation, nearby-component keepouts, +X/right extension, DDA socket-to-PCB offset, and BladeRunner Y/Z envelope. The selected upright orientation passes these simplified checks.
+This remains conservative box/mesh validation, not full B-Rep interference analysis. It authenticates the STEP and BladeRunner meshes, checks the J3 anchor/direction, measured header stack, SLW insertion minimum, the 3.40 mm J2 engagement requirement, 2.442 mm post margin, simplified body/elbow separation, confirmed pin-1 orientation, nearby-component keepouts, +X/right extension, DDA socket-to-PCB offset, and BladeRunner Y/Z envelope. The selected upright orientation passes these simplified checks.
 
 ## Regeneration and CI
 
@@ -120,7 +140,7 @@ The deterministic board embeds connector drawings while retaining official KiCad
 ## Remaining unresolved mechanical items
 
 - Whether the SLW socket physically bottoms against the Compute Blade header plastic exactly as modeled (`J1_SEATING_GAP_MM = 0.0`).
-- The DDA socket's required contact insertion/wipe and exact interaction with the TSW right-angle plastic/elbow during full insertion.
+- Whether exact TSW plastic/elbow geometry permits at least 3.40 mm DDA insertion.
 - Residual approximation between the parsed STEP J3 placement and the real extension-header mating datum/nearby detailed B-Rep surfaces.
 - Actual installed 19-inch BladeRunner clearance beyond the authenticated mesh bounds and conservative envelope.
 - A final physical fit-check prototype before ordering multiple boards.

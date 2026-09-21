@@ -19,6 +19,8 @@ from design_config import (
     COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
     COMPUTE_BLADE_STEP_J3_ANCHOR_MM,
     COMPUTE_BLADE_STEP_J3_REF_DIRECTION,
+    DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM,
+    DDA_MIN_ACCEPTABLE_INSERTION_MM,
     NEARBY_BLADE_COMPONENT_KEEP_OUTS,
     DDA,
     DDA_PIN1_TOP_EDGE_OFFSET_MM,
@@ -30,7 +32,6 @@ from design_config import (
     J1_ORIGIN_MM,
     J1_SEATING_GAP_MM,
     J1_SOCKET_BODY_HEIGHT_MM,
-    J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM,
     J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM,
     J2_FOOTPRINT,
     J2_FOOTPRINT_ROTATION_DEG,
@@ -38,6 +39,7 @@ from design_config import (
     J2_PIN1_CENTER_Z_MM,
     J2_PIN1_IS_UPPER_MATING_ROW,
     J2_PIN2_CENTER_Z_MM,
+    J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
     J2_POST_TIP_LOCAL_X_MM,
 )
 from fetch_reference_cad import REFERENCES, REFERENCE_DIR, UPSTREAM_COMMIT, digest
@@ -223,15 +225,29 @@ def validate_connector_constraints(selected_rotation_180: bool) -> tuple[list[st
         f"{J1_SEATING_GAP_MM:.3f} mm seating gap = {ADAPTER_Z_ABOVE_BLADE_MM:.3f} mm"
     )
 
-    if J2_MATING_POST_LENGTH_MM < J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM:
-        errors.append("TSW mating post is shorter than the explicit DDA insertion assumption")
-    plastic_clearance = J2_MATING_POST_LENGTH_MM - J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM
-    if plastic_clearance <= 0:
-        errors.append("modeled DDA socket reaches or intersects the TSW plastic mating face")
+    calculated_requirement = (
+        COMPUTE_BLADE_EXPOSED_POST_MM - DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM
+    )
+    if abs(DDA_MIN_ACCEPTABLE_INSERTION_MM - 3.40) > 1e-9:
+        errors.append("DDA minimum acceptable insertion must remain exactly 3.40 mm")
+    if abs(DDA_MIN_ACCEPTABLE_INSERTION_MM - calculated_requirement) > 1e-9:
+        errors.append("DDA insertion requirement is not exposed post minus acceptable remainder")
+    if J2_MATING_POST_LENGTH_MM < DDA_MIN_ACCEPTABLE_INSERTION_MM:
+        errors.append("TSW usable mating post is shorter than the required DDA insertion")
+    post_margin = J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM
+    if abs(post_margin - J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM) > 1e-9:
+        errors.append("TSW post-length margin calculation is inconsistent")
+    if post_margin <= 0:
+        errors.append("no TSW post remains after the minimum acceptable DDA insertion")
     notes.append(
-        f"J2 simplified axial check: {J2_MATING_POST_LENGTH_MM:.3f} mm post, "
-        f"{J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM:.3f} mm assumed insertion, "
-        f"{plastic_clearance:.3f} mm plastic-face separation"
+        f"DDA acceptance requirement: {COMPUTE_BLADE_EXPOSED_POST_MM:.3f} mm exposed post - "
+        f"{DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM:.3f} mm acceptable remainder = "
+        f"{DDA_MIN_ACCEPTABLE_INSERTION_MM:.3f} mm minimum insertion"
+    )
+    notes.append(
+        f"J2 post check: {J2_MATING_POST_LENGTH_MM:.3f} mm usable post >= "
+        f"{DDA_MIN_ACCEPTABLE_INSERTION_MM:.3f} mm required; "
+        f"post-length margin {post_margin:.3f} mm"
     )
 
     if not J2_PIN1_IS_UPPER_MATING_ROW or J2_PIN1_CENTER_Z_MM <= J2_PIN2_CENTER_Z_MM:
@@ -288,13 +304,18 @@ def variant_checks(rotation_180: bool) -> tuple[list[str], list[str]]:
         errors.append("DDA PCB-to-socket mating-plane offset is not 8.3 mm")
 
     connectors = connector_boxes()
-    header_body = next(box for box in connectors if box.name == "j2_right_angle_body")
+    header_body = next(box for box in connectors if box.name == "j2_body_elbow_keepout")
     posts = next(box for box in connectors if box.name == "j2_mating_posts")
     insertion = max(0.0, min(posts.xmax, socket.xmax) - max(posts.xmin, socket.xmin))
-    if abs(insertion - J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM) > 1e-6:
-        errors.append("modeled TSW-to-DDA insertion does not match the explicit assumption")
+    if abs(insertion - DDA_MIN_ACCEPTABLE_INSERTION_MM) > 1e-6:
+        errors.append("modeled TSW-to-DDA insertion is not exactly the 3.40 mm requirement")
     if socket.overlaps(header_body):
-        errors.append("DDA socket intersects the simplified TSW plastic body")
+        errors.append("DDA socket intersects the simplified TSW plastic body/elbow keepout")
+    axial_clearance = socket.xmin - header_body.xmax
+    if axial_clearance < 0:
+        errors.append("TSW body/elbow blocks the required 3.40 mm DDA insertion")
+    if abs(axial_clearance - J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM) > 1e-6:
+        errors.append("modeled J2 axial body clearance does not match the post-length margin")
     if abs(posts.xmax - (j2_x + J2_POST_TIP_LOCAL_X_MM)) > 1e-6:
         errors.append("TSW post-tip position does not match its manufacturer post length")
 
@@ -307,6 +328,10 @@ def variant_checks(rotation_180: bool) -> tuple[list[str], list[str]]:
         f"DDA {'rot180' if rotation_180 else 'default'} envelope: "
         f"X {bounds[0]:.2f}..{bounds[1]:.2f}, Y {bounds[2]:.2f}..{bounds[3]:.2f}, "
         f"Z {bounds[4]:.2f}..{bounds[5]:.2f} mm"
+    )
+    notes.append(
+        f"Simplified TSW body/elbow axial clearance at "
+        f"{DDA_MIN_ACCEPTABLE_INSERTION_MM:.2f} mm insertion: {axial_clearance:.3f} mm"
     )
     anchor = COMPUTE_BLADE_STEP_J3_ANCHOR_MM
     notes.append(

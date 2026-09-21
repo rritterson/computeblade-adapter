@@ -57,10 +57,14 @@ J2_BODY_HEIGHT_MM = 5.56  # 0.219 inch reference
 J2_PIN1_CENTER_BELOW_BODY_TOP_MM = 1.0  # 0.040 inch reference
 J2_PIN1_IS_UPPER_MATING_ROW = True
 
-# The DDA socket's internal contact wipe/insertion requirement has not been
-# published or measured. This value is an explicit collision-model assumption,
-# not a claim about the DDA connector specification.
-J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM = 2.54
+# User-defined acceptance requirement. The DDA socket is physically known to
+# accept the Compute Blade's full 6.5 mm exposed post. Strong seating is deemed
+# acceptable when no more than 3.1 mm remains exposed: 6.5 - 3.1 = 3.4 mm.
+DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM = 3.1
+DDA_MIN_ACCEPTABLE_INSERTION_MM = 3.40
+J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM = (
+    round(J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM, 3)
+)
 
 # The standard KiCad horizontal-header model has its plastic mating face here.
 # The exact TSW post then projects in local +X by J2_MATING_POST_LENGTH_MM.
@@ -69,7 +73,7 @@ J2_POST_TIP_LOCAL_X_MM = (
     J2_HEADER_PLASTIC_FACE_LOCAL_X_MM + J2_MATING_POST_LENGTH_MM
 )
 J2_DDA_SOCKET_MATING_FACE_LOCAL_X_MM = (
-    J2_POST_TIP_LOCAL_X_MM - J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM
+    J2_POST_TIP_LOCAL_X_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM
 )
 
 

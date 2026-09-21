@@ -154,8 +154,8 @@ def connector_boxes() -> list[Box]:
             + J1_SOCKET_BODY_HEIGHT_MM,
         ),
         Box(
-            "j2_right_angle_body",
-            j2_x + 3.93,
+            "j2_body_elbow_keepout",
+            j2_x - 1.77,
             j2_x + J2_HEADER_PLASTIC_FACE_LOCAL_X_MM,
             j2_y - 1.38,
             j2_y + 14.08,

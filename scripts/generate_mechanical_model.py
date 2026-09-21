@@ -14,14 +14,16 @@ from design_config import (
     COMPUTE_BLADE_EXPOSED_POST_MM,
     COMPUTE_BLADE_HEADER_PIN_TIP_MM,
     COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
+    DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM,
+    DDA_MIN_ACCEPTABLE_INSERTION_MM,
     DDA_PIN1_TOP_SIDE_POSITION,
     DDA_PIN1_UNDERSIDE_POSITION,
     DDA_ROTATION_180,
     J1_INSERTION_DEPTH_MIN_MM,
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_SEATING_GAP_MM,
-    J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM,
     J2_MATING_POST_LENGTH_MM,
+    J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
 )
 from mechanical_geometry import Box, adapter_box, connector_boxes, dda_boxes
 
@@ -67,7 +69,7 @@ def write_svg(path: Path, boxes: list[Box], title: str) -> None:
         "compute_blade_header_plastic": "#202020",
         "compute_blade_header_exposed_posts": "#c7a338",
         "j1_socket_body": "#555555",
-        "j2_right_angle_body": "#333333",
+        "j2_body_elbow_keepout": "#333333",
         "j2_mating_posts": "#c7a338",
         "compute_blade_local_envelope": "#4b75a5",
     }
@@ -127,8 +129,10 @@ def main() -> None:
             "j1_minimum_insertion": J1_INSERTION_DEPTH_MIN_MM,
             "j1_nominal_stack": J1_NOMINAL_STACK_HEIGHT_MM,
             "j1_seating_gap": J1_SEATING_GAP_MM,
-            "j2_assumed_dda_insertion": J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM,
+            "dda_acceptable_remaining_exposed_post": DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM,
+            "dda_min_acceptable_insertion": DDA_MIN_ACCEPTABLE_INSERTION_MM,
             "j2_mating_post": J2_MATING_POST_LENGTH_MM,
+            "j2_post_margin_after_minimum_insertion": J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
         },
         "confirmed_dda_pin1": {
             "top_component_side": DDA_PIN1_TOP_SIDE_POSITION,

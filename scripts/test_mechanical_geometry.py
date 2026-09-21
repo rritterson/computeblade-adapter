@@ -10,6 +10,8 @@ from design_config import (
     COMPUTE_BLADE_HEADER_PIN_TIP_MM,
     COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM,
     DDA,
+    DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM,
+    DDA_MIN_ACCEPTABLE_INSERTION_MM,
     DDA_PIN1_TOP_EDGE_OFFSET_MM,
     DDA_PIN1_TOP_SIDE_POSITION,
     DDA_PIN1_UNDERSIDE_POSITION,
@@ -17,11 +19,11 @@ from design_config import (
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_SEATING_GAP_MM,
     J1_SOCKET_BODY_HEIGHT_MM,
-    J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM,
     J2_MATING_POST_LENGTH_MM,
     J2_PIN1_CENTER_Z_MM,
     J2_PIN1_IS_UPPER_MATING_ROW,
     J2_PIN2_CENTER_Z_MM,
+    J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
 )
 from mechanical_geometry import connector_boxes, dda_boxes, relative_j2
 
@@ -68,14 +70,27 @@ class MechanicalGeometryTests(unittest.TestCase):
         pcb = next(box for box in dda_boxes(False) if box.name == "dda_pcb")
         self.assertAlmostEqual(J2_PIN1_CENTER_Z_MM, pcb.zmin + DDA_PIN1_TOP_EDGE_OFFSET_MM)
 
-    def test_tsw_post_insertion_and_simplified_body_clearance(self):
+    def test_dda_minimum_insertion_requirement_and_tsw_margin(self):
+        self.assertEqual(3.40, DDA_MIN_ACCEPTABLE_INSERTION_MM)
+        self.assertAlmostEqual(
+            DDA_MIN_ACCEPTABLE_INSERTION_MM,
+            COMPUTE_BLADE_EXPOSED_POST_MM - DDA_ACCEPTABLE_REMAINING_EXPOSED_POST_MM,
+        )
+        self.assertGreaterEqual(J2_MATING_POST_LENGTH_MM, DDA_MIN_ACCEPTABLE_INSERTION_MM)
+        self.assertAlmostEqual(2.442, J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM)
+
+    def test_tsw_minimum_insertion_and_simplified_body_elbow_clearance(self):
         socket = next(box for box in dda_boxes(False) if box.name == "dda_socket")
-        body = next(box for box in connector_boxes() if box.name == "j2_right_angle_body")
+        body = next(box for box in connector_boxes() if box.name == "j2_body_elbow_keepout")
         posts = next(box for box in connector_boxes() if box.name == "j2_mating_posts")
         insertion = min(posts.xmax, socket.xmax) - max(posts.xmin, socket.xmin)
-        self.assertAlmostEqual(J2_DDA_INSERTION_DEPTH_ASSUMPTION_MM, insertion)
+        self.assertAlmostEqual(DDA_MIN_ACCEPTABLE_INSERTION_MM, insertion)
         self.assertGreaterEqual(J2_MATING_POST_LENGTH_MM, insertion)
         self.assertFalse(socket.overlaps(body))
+        self.assertAlmostEqual(
+            J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
+            socket.xmin - body.xmax,
+        )
 
     def test_rotated_alternative_is_distinct_and_currently_rejected(self):
         default_pcb = next(box for box in dda_boxes(False) if box.name == "dda_pcb")
