@@ -214,6 +214,48 @@ def distance_between_segments(
     )
 
 
+def segment_intersects_aabb(
+    start: tuple[float, float], end: tuple[float, float],
+    xmin: float, xmax: float, ymin: float, ymax: float,
+) -> bool:
+    """Liang-Barsky test for a segment intersecting a closed rectangle."""
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    lower, upper = 0.0, 1.0
+    for p, q in (
+        (-dx, start[0] - xmin), (dx, xmax - start[0]),
+        (-dy, start[1] - ymin), (dy, ymax - start[1]),
+    ):
+        if abs(p) <= 1e-12:
+            if q < 0:
+                return False
+            continue
+        ratio = q / p
+        if p < 0:
+            lower = max(lower, ratio)
+        else:
+            upper = min(upper, ratio)
+        if lower > upper:
+            return False
+    return True
+
+
+def segment_violates_pad_clearance(
+    start: tuple[float, float], end: tuple[float, float],
+    center: tuple[float, float], pin: int, track_width: float,
+) -> bool:
+    clearance = track_width / 2 + 0.15
+    if pin == 1:
+        # Pin 1 is a 1.8 mm square pad; treating it as a 0.9 mm-radius circle
+        # misses copper near its corners.
+        half_extent = 0.90 + clearance
+        return segment_intersects_aabb(
+            start, end,
+            center[0] - half_extent, center[0] + half_extent,
+            center[1] - half_extent, center[1] + half_extent,
+        )
+    return distance_to_segment(center, start, end) < 0.90 + clearance
+
+
 def simplify(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
     result = []
     for point in points:
@@ -256,7 +298,7 @@ def routed_points(start: tuple[float, float], start_escape: tuple[float, float],
     start_cell = (round((start_escape[0] - xmin) / step), round((start_escape[1] - ymin) / step))
     end_cell = (round((end_escape[0] - xmin) / step), round((end_escape[1] - ymin) / step))
     pad_centers = [
-        (global_pad(ref, pin), net_for(ref, pin))
+        (global_pad(ref, pin), net_for(ref, pin), pin)
         for ref, count in (("J1", 10), ("J2", 12))
         for pin in range(1, count + 1)
     ]
@@ -267,9 +309,8 @@ def routed_points(start: tuple[float, float], start_escape: tuple[float, float],
     def segment_blocked(a: tuple[float, float], b: tuple[float, float]) -> bool:
         if any(point[0] < xmin or point[0] > xmax or point[1] < ymin or point[1] > ymax for point in (a, b)):
             return True
-        pad_radius = 0.90 + width / 2 + 0.15
-        for center, pad_net in pad_centers:
-            if pad_net != net and distance_to_segment(center, a, b) < pad_radius:
+        for center, pad_net, pin in pad_centers:
+            if pad_net != net and segment_violates_pad_clearance(a, b, center, pin, width):
                 return True
         for track_layer, track_net, track_width, points in completed:
             if track_layer != layer or track_net == net:
@@ -412,16 +453,15 @@ def assert_route_clearances(
         for index in range(len(points) - 1)
     ]
     for layer, net, width, start, end in segments:
-        required = 0.90 + width / 2 + 0.15
         for ref, count in (("J1", 10), ("J2", 12)):
             for pin in range(1, count + 1):
                 if net_for(ref, pin) == net:
                     continue
-                actual = distance_to_segment(global_pad(ref, pin), start, end)
-                if actual < required - 1e-6:
+                center = global_pad(ref, pin)
+                if segment_violates_pad_clearance(start, end, center, pin, width):
                     raise RuntimeError(
-                        f"{net} {layer} segment {start}->{end} has only {actual:.4f} mm "
-                        f"centerline clearance to {ref}.{pin}; {required:.4f} mm required"
+                        f"{net} {layer} segment {start}->{end} violates copper clearance "
+                        f"to {ref}.{pin} at {center}"
                     )
     for index, (layer, net, width, start, end) in enumerate(segments):
         for other_layer, other_net, other_width, other_start, other_end in segments[index + 1:]:
