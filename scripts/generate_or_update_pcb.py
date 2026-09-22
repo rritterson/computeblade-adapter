@@ -6,7 +6,6 @@ from __future__ import annotations
 import uuid
 import math
 import heapq
-from functools import lru_cache
 from pathlib import Path
 
 from design_config import (
@@ -184,6 +183,37 @@ def distance_to_segment(point: tuple[float, float], start: tuple[float, float],
     return math.dist(point, (start[0] + t * vx, start[1] + t * vy))
 
 
+def distance_between_segments(
+    a: tuple[float, float], b: tuple[float, float],
+    c: tuple[float, float], d: tuple[float, float],
+) -> float:
+    """Return the exact minimum distance between two closed 2-D segments."""
+    def orientation(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+
+    def on_segment(p, q, r):
+        return (
+            min(p[0], r[0]) - 1e-9 <= q[0] <= max(p[0], r[0]) + 1e-9
+            and min(p[1], r[1]) - 1e-9 <= q[1] <= max(p[1], r[1]) + 1e-9
+        )
+
+    ab_c, ab_d = orientation(a, b, c), orientation(a, b, d)
+    cd_a, cd_b = orientation(c, d, a), orientation(c, d, b)
+    if ab_c * ab_d < 0 and cd_a * cd_b < 0:
+        return 0.0
+    if (
+        (abs(ab_c) <= 1e-9 and on_segment(a, c, b))
+        or (abs(ab_d) <= 1e-9 and on_segment(a, d, b))
+        or (abs(cd_a) <= 1e-9 and on_segment(c, a, d))
+        or (abs(cd_b) <= 1e-9 and on_segment(c, b, d))
+    ):
+        return 0.0
+    return min(
+        distance_to_segment(a, c, d), distance_to_segment(b, c, d),
+        distance_to_segment(c, a, b), distance_to_segment(d, a, b),
+    )
+
+
 def simplify(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
     result = []
     for point in points:
@@ -234,27 +264,29 @@ def routed_points(start: tuple[float, float], start_escape: tuple[float, float],
     def position(cell: tuple[int, int]) -> tuple[float, float]:
         return xmin + cell[0] * step, ymin + cell[1] * step
 
-    @lru_cache(maxsize=None)
-    def blocked(cell: tuple[int, int]) -> bool:
-        point = position(cell)
-        if point[0] < xmin or point[0] > xmax or point[1] < ymin or point[1] > ymax:
+    def segment_blocked(a: tuple[float, float], b: tuple[float, float]) -> bool:
+        if any(point[0] < xmin or point[0] > xmax or point[1] < ymin or point[1] > ymax for point in (a, b)):
             return True
-        if cell in (start_cell, end_cell):
-            return False
         pad_radius = 0.90 + width / 2 + 0.15
         for center, pad_net in pad_centers:
-            if pad_net != net and math.dist(point, center) < pad_radius:
+            if pad_net != net and distance_to_segment(center, a, b) < pad_radius:
                 return True
         for track_layer, track_net, track_width, points in completed:
             if track_layer != layer or track_net == net:
                 continue
             clearance = (width + track_width) / 2 + 0.15
+            probes = (a, ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), b)
             if any(
-                distance_to_segment(point, points[index], points[index + 1]) < clearance
+                distance_to_segment(probe, points[index], points[index + 1]) < clearance
+                for probe in probes
                 for index in range(len(points) - 1)
             ):
                 return True
         return False
+
+    # The two pad-escape segments are not A* edges, so validate them explicitly.
+    if segment_blocked(start, start_escape) or segment_blocked(end_escape, end):
+        raise RuntimeError(f"pad escape for {net} on {layer} violates clearance")
 
     queue = [(0.0, 0.0, start_cell)]
     previous: dict[tuple[int, int], tuple[int, int] | None] = {start_cell: None}
@@ -268,7 +300,7 @@ def routed_points(start: tuple[float, float], start_escape: tuple[float, float],
             continue
         for dx, dy in directions:
             neighbor = current[0] + dx, current[1] + dy
-            if blocked(neighbor):
+            if segment_blocked(position(current), position(neighbor)):
                 continue
             move = math.sqrt(2.0) if dx and dy else 1.0
             candidate = current_cost + move
@@ -370,6 +402,40 @@ def via(point: tuple[float, float], net: str, key: str) -> str:
     )
 
 
+def assert_route_clearances(
+    completed: list[tuple[str, str, float, list[tuple[float, float]]]],
+) -> None:
+    """Independently audit every finished copper segment before serialization."""
+    segments = [
+        (layer, net, width, points[index], points[index + 1])
+        for layer, net, width, points in completed
+        for index in range(len(points) - 1)
+    ]
+    for layer, net, width, start, end in segments:
+        required = 0.90 + width / 2 + 0.15
+        for ref, count in (("J1", 10), ("J2", 12)):
+            for pin in range(1, count + 1):
+                if net_for(ref, pin) == net:
+                    continue
+                actual = distance_to_segment(global_pad(ref, pin), start, end)
+                if actual < required - 1e-6:
+                    raise RuntimeError(
+                        f"{net} {layer} segment {start}->{end} has only {actual:.4f} mm "
+                        f"centerline clearance to {ref}.{pin}; {required:.4f} mm required"
+                    )
+    for index, (layer, net, width, start, end) in enumerate(segments):
+        for other_layer, other_net, other_width, other_start, other_end in segments[index + 1:]:
+            if layer != other_layer or net == other_net:
+                continue
+            required = (width + other_width) / 2 + 0.15
+            actual = distance_between_segments(start, end, other_start, other_end)
+            if actual < required - 1e-6:
+                raise RuntimeError(
+                    f"{net}/{other_net} segments on {layer} have only {actual:.4f} mm "
+                    f"centerline clearance; {required:.4f} mm required"
+                )
+
+
 def build_board() -> str:
     bounds = BOARD_BOUNDS_RELATIVE_J1_MM
     board_left, board_right = J1_ORIGIN_MM[0] + bounds[0], J1_ORIGIN_MM[0] + bounds[1]
@@ -413,6 +479,8 @@ def build_board() -> str:
         via_points = branch_via if isinstance(branch_via[0], tuple) else (branch_via,)
         for via_index, point in enumerate(via_points):
             routes.append(via(point, pps_net, f"pps-branch-via-{via_index}"))
+
+    assert_route_clearances(completed)
 
     physical_xmin = J1_ORIGIN_MM[0] + bounds[0]
     physical_xmax = J1_ORIGIN_MM[0] + bounds[1]
