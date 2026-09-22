@@ -14,6 +14,8 @@ from design_config import (
     BLADERUNNER_PER_BLADE_DESIGN_MAX_MM,
     BLADERUNNER_PER_BLADE_PHYSICAL_CLEARANCE_MM,
     BLADERUNNER_Z_SAFETY_MARGIN_MM,
+    BLADERUNNER_PHYSICAL_CLEARANCE_MIN_MM,
+    BLADERUNNER_MARGIN_AFTER_RESERVE_MIN_MM,
     BOARD_BOUNDS_RELATIVE_J1_MM,
     BOARD_THICKNESS_MM,
     COMPUTE_BLADE_EXPOSED_POST_MM,
@@ -43,6 +45,7 @@ from design_config import (
     J1_NOMINAL_STACK_HEIGHT_MM,
     J1_ORIGIN_MM,
     J1_SEATING_GAP_MM,
+    J1_SEATING_GAP_CANDIDATES_MM,
     J2_BODY_Z_MAX_MM,
     J2_BODY_Z_MIN_MM,
     J2_CANDIDATE_PART,
@@ -51,6 +54,7 @@ from design_config import (
     J2_FOOTPRINT_ROTATION_DEG,
     J2_LOWER_POST_LENGTH_MM,
     J2_LOWER_TIP_Z_MM,
+    J2_TAIL_CLEARANCE_TO_COMPUTE_BLADE_MIN_MM,
     J2_MATING_POST_LENGTH_MM,
     J2_OAL_MM,
     J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
@@ -68,6 +72,7 @@ from mechanical_geometry import (
     dda_boxes,
     dda_pcb_envelope_errors,
     dda_projected_bounds,
+    evaluate_seating_gap,
 )
 from verify_connectivity import child, children, parse_sexpr, properties, transformed_pad
 
@@ -262,17 +267,19 @@ def validate_connector_constraints() -> tuple[list[str], list[str]]:
     measured = COMPUTE_BLADE_HEADER_PIN_TIP_MM - COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM
     if abs(measured - COMPUTE_BLADE_EXPOSED_POST_MM) > 1e-9:
         errors.append("Compute Blade exposed-post arithmetic is inconsistent")
-    expected_hle = J1_BOTTOM_ENTRY_CONTACT_MIN_MM + BOARD_THICKNESS_MM
+    expected_hle = J1_BOTTOM_ENTRY_CONTACT_MIN_MM + BOARD_THICKNESS_MM + J1_SEATING_GAP_MM
     if abs(J1_INSERTION_DEPTH_MIN_MM - expected_hle) > 1e-9:
-        errors.append("HLE bottom-entry requirement must include adapter thickness")
+        errors.append("HLE bottom-entry requirement must include adapter thickness and seating gap")
     if COMPUTE_BLADE_EXPOSED_POST_MM < J1_INSERTION_DEPTH_MIN_MM:
         errors.append("Compute Blade post does not meet HLE bottom-entry reach")
     if ADAPTER_Z_ABOVE_BLADE_MM != COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM + J1_SEATING_GAP_MM:
         errors.append("adapter underside must sit at the header-plastic top plus explicit gap")
     notes.append(
         f"J1 {J1_CANDIDATE_PART}: {COMPUTE_BLADE_EXPOSED_POST_MM:.3f} mm post >= "
-        f"{J1_BOTTOM_ENTRY_CONTACT_MIN_MM:.3f} + {BOARD_THICKNESS_MM:.3f} = "
-        f"{J1_INSERTION_DEPTH_MIN_MM:.3f} mm required; open pass-through prevents closed-end bottoming"
+        f"{J1_BOTTOM_ENTRY_CONTACT_MIN_MM:.3f} + {BOARD_THICKNESS_MM:.3f} + "
+        f"{J1_SEATING_GAP_MM:.3f} = {J1_INSERTION_DEPTH_MIN_MM:.3f} mm required; "
+        f"surplus {COMPUTE_BLADE_EXPOSED_POST_MM - J1_INSERTION_DEPTH_MIN_MM:.3f} mm; "
+        "open pass-through prevents closed-end bottoming"
     )
 
     expected_tail = J2_OAL_MM - 1.520 - J2_MATING_POST_LENGTH_MM
@@ -284,8 +291,11 @@ def validate_connector_constraints() -> tuple[list[str], list[str]]:
         errors.append("J2 must use the manufacturer-designated mating end toward the DDA")
     if J2_LOWER_POST_LENGTH_MM - BOARD_THICKNESS_MM < J2_MIN_SOLDER_PROTRUSION_BELOW_PCB_MM:
         errors.append("MTLW solder tail does not provide adequate protrusion through the adapter")
-    if J2_LOWER_TIP_Z_MM <= 0:
-        errors.append("MTLW solder tail crosses the Compute Blade PCB plane")
+    if J2_LOWER_TIP_Z_MM < J2_TAIL_CLEARANCE_TO_COMPUTE_BLADE_MIN_MM:
+        errors.append(
+            f"MTLW tail clearance {J2_LOWER_TIP_Z_MM:.3f} mm is below the "
+            f"{J2_TAIL_CLEARANCE_TO_COMPUTE_BLADE_MIN_MM:.3f} mm production minimum"
+        )
     insertion = J2_UPPER_TIP_Z_MM - J2_DDA_SOCKET_MATING_FACE_Z_MM
     if abs(insertion - DDA_MIN_ACCEPTABLE_INSERTION_MM) > 1e-9:
         errors.append("modeled DDA insertion is not exactly 3.40 mm")
@@ -342,6 +352,10 @@ def geometry_checks() -> tuple[list[str], list[str]]:
         errors.append("outward stack exceeds the BladeRunner design maximum")
     if physical_margin < BLADERUNNER_Z_SAFETY_MARGIN_MM:
         errors.append("nominal physical BladeRunner clearance is below 1.0 mm")
+    if physical_margin < BLADERUNNER_PHYSICAL_CLEARANCE_MIN_MM:
+        errors.append("physical BladeRunner clearance is below the 2.0 mm hard minimum")
+    if reserve_margin < BLADERUNNER_MARGIN_AFTER_RESERVE_MIN_MM:
+        errors.append("BladeRunner margin after the 1.0 mm reserve is below 1.0 mm")
     if J2_BODY_Z_MIN_MM < ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM:
         errors.append("conventional MTLW insulator is not on the outward adapter surface")
 
@@ -371,6 +385,16 @@ def main() -> int:
     errors.extend(connector_errors + geometry_errors)
     notes.extend(connector_notes + geometry_notes)
     if args.compare_variants:
+        notes.append("J1 seating-gap comparison (all values derived through the shared exact Z-chain):")
+        for gap in J1_SEATING_GAP_CANDIDATES_MM:
+            variant = evaluate_seating_gap(gap)
+            notes.append(
+                f"gap {gap:.2f}: adapter {variant.adapter_underside_mm:.3f}, "
+                f"J1 reach {variant.j1_required_reach_mm:.3f}, surplus {variant.j1_engagement_surplus_mm:.3f}, "
+                f"J2 tail clearance {variant.j2_tail_clearance_mm:.3f}, stack {variant.outward_stack_mm:.3f}, "
+                f"physical clearance {variant.physical_clearance_mm:.4f}, "
+                f"after-reserve margin {variant.margin_after_reserve_mm:.4f} mm"
+            )
         notes.append("no alternate DDA orientation is generated; confirmed GNSS-outward orientation only")
 
     if board_bounds() != BOARD_BOUNDS_RELATIVE_J1_MM:

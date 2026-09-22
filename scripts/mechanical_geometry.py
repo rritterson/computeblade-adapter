@@ -24,6 +24,8 @@ from design_config import (
     DDA_TOP_TO_BOTTOM_AXIS,
     J1_BODY_Z_MAX_MM,
     J1_BODY_Z_MIN_MM,
+    J1_BOTTOM_ENTRY_CONTACT_MIN_MM,
+    J1_INSERTION_DEPTH_MAX_MM,
     J2_BODY_PLAN_MM,
     J2_BODY_Z_MAX_MM,
     J2_BODY_Z_MIN_MM,
@@ -35,6 +37,12 @@ from design_config import (
     J2_ROW1_TO_ROW2_AXIS,
     J2_SOLDER_TAIL_AXIS,
     J2_UPPER_TIP_Z_MM,
+    J2_BODY_HEIGHT_MM,
+    J2_LOWER_POST_LENGTH_MM,
+    J2_MATING_POST_LENGTH_MM,
+    DDA_MIN_ACCEPTABLE_INSERTION_MM,
+    BLADERUNNER_PER_BLADE_PHYSICAL_CLEARANCE_MM,
+    BLADERUNNER_PER_BLADE_DESIGN_MAX_MM,
     J1_ORIGIN_MM,
 )
 
@@ -62,6 +70,41 @@ class Box:
     @property
     def size(self) -> tuple[float, float, float]:
         return self.xmax - self.xmin, self.ymax - self.ymin, self.zmax - self.zmin
+
+
+@dataclass(frozen=True)
+class SeatingGapEvaluation:
+    gap_mm: float
+    adapter_underside_mm: float
+    j1_required_reach_mm: float
+    j1_engagement_surplus_mm: float
+    j2_tail_clearance_mm: float
+    outward_stack_mm: float
+    physical_clearance_mm: float
+    margin_after_reserve_mm: float
+
+
+def evaluate_seating_gap(gap_mm: float) -> SeatingGapEvaluation:
+    """Evaluate a J1 gap from the same exact Z-chain used by the assembly."""
+    adapter_underside = COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM + gap_mm
+    required_reach = J1_BOTTOM_ENTRY_CONTACT_MIN_MM + BOARD_THICKNESS_MM + gap_mm
+    j2_body_min = adapter_underside + BOARD_THICKNESS_MM
+    j2_tail_clearance = j2_body_min - J2_LOWER_POST_LENGTH_MM
+    j2_body_max = j2_body_min + J2_BODY_HEIGHT_MM
+    dda_mating_face = (
+        j2_body_max + J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM
+    )
+    outward_stack = dda_mating_face + DDA.mating_face_to_gnss_top
+    return SeatingGapEvaluation(
+        gap_mm=gap_mm,
+        adapter_underside_mm=adapter_underside,
+        j1_required_reach_mm=required_reach,
+        j1_engagement_surplus_mm=J1_INSERTION_DEPTH_MAX_MM - required_reach,
+        j2_tail_clearance_mm=j2_tail_clearance,
+        outward_stack_mm=outward_stack,
+        physical_clearance_mm=BLADERUNNER_PER_BLADE_PHYSICAL_CLEARANCE_MM - outward_stack,
+        margin_after_reserve_mm=BLADERUNNER_PER_BLADE_DESIGN_MAX_MM - outward_stack,
+    )
 
 
 def relative_j2() -> tuple[float, float]:

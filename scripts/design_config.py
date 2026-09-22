@@ -76,13 +76,17 @@ COMPUTE_BLADE_HEADER_PIN_TIP_MM = 9.0
 COMPUTE_BLADE_EXPOSED_POST_MM = 6.5
 
 # HLE-105-02-L-DV-PE-BE manufacturer geometry. Bottom entry requires at least
-# 2.59 mm of post reach plus the host-board thickness. The housing is open/pass
-# through, so the remaining Compute Blade post cannot bottom in a closed bore.
+# 2.59 mm of post reach plus the host-board thickness and the intentional gap
+# above the Compute Blade header housing. The housing is open/pass-through, so
+# the remaining Compute Blade post cannot bottom in a closed bore.
 J1_SOCKET_BODY_HEIGHT_MM = 3.66
 J1_BOTTOM_ENTRY_CONTACT_MIN_MM = 2.59
-J1_INSERTION_DEPTH_MIN_MM = J1_BOTTOM_ENTRY_CONTACT_MIN_MM + BOARD_THICKNESS_MM
+J1_SEATING_GAP_CANDIDATES_MM = (0.30, 0.35, 0.40)
+J1_SEATING_GAP_MM = 0.35
+J1_INSERTION_DEPTH_MIN_MM = (
+    J1_BOTTOM_ENTRY_CONTACT_MIN_MM + BOARD_THICKNESS_MM + J1_SEATING_GAP_MM
+)
 J1_INSERTION_DEPTH_MAX_MM = COMPUTE_BLADE_EXPOSED_POST_MM
-J1_SEATING_GAP_MM = 0.0
 J1_NOMINAL_STACK_HEIGHT_MM = COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM
 ADAPTER_Z_ABOVE_BLADE_MM = J1_NOMINAL_STACK_HEIGHT_MM + J1_SEATING_GAP_MM
 J1_BODY_Z_MIN_MM = ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM
@@ -180,6 +184,9 @@ BLADERUNNER_Z_SAFETY_MARGIN_MM = 1.0
 BLADERUNNER_PER_BLADE_DESIGN_MAX_MM = (
     BLADERUNNER_PER_BLADE_PHYSICAL_CLEARANCE_MM - BLADERUNNER_Z_SAFETY_MARGIN_MM
 )
+J2_TAIL_CLEARANCE_TO_COMPUTE_BLADE_MIN_MM = 0.30
+BLADERUNNER_PHYSICAL_CLEARANCE_MIN_MM = 2.00
+BLADERUNNER_MARGIN_AFTER_RESERVE_MIN_MM = 1.00
 
 # The approved candidate was selected from the official STEP as clear of the
 # J3-area component keepout. Exact B-Rep collision is additionally required in

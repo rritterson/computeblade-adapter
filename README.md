@@ -76,11 +76,22 @@ Physically measured Compute Blade dimensions:
 
 Manufacturer HLE requirements:
 
-- Bottom-entry minimum reach: 2.590 mm plus host PCB thickness.
-- With a 1.000 mm adapter, required reach is 3.590 mm.
-- The measured 6.500 mm post exceeds this requirement by 2.910 mm.
+- Bottom-entry minimum reach: 2.590 mm plus host PCB thickness and the intentional seating gap.
+- `J1_SEATING_GAP_MM = 0.350` is the single authoritative gap between the Compute Blade header-plastic top and adapter/J1 seating plane.
+- With a 1.000 mm adapter and the 0.350 mm gap, required reach is 3.940 mm.
+- The measured 6.500 mm post exceeds this requirement by 2.560 mm.
 - `-PE-BE` is open/pass-through, so excess post does not bottom in a closed socket.
-- Adapter underside is 2.500 mm above the Compute Blade PCB, with `J1_SEATING_GAP_MM = 0.0`.
+- Adapter underside is therefore 2.850 mm above the Compute Blade PCB. The 0.350 mm separation is an intentional assembly datum, not an assumed connector-body height; assembly should use a 0.35 mm seating gauge/fixture and verify the resulting separation on the first article.
+
+The same exact connector Z-chain was evaluated at all requested gaps:
+
+| Seating gap | Adapter underside | J1 required reach | J1 surplus | J2 tail clearance | Outward stack | Physical clearance | Margin after reserve |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.300 mm | 2.800 mm | 3.890 mm | 2.610 mm | 0.366 mm | 17.776 mm | 2.1557 mm | 1.1557 mm |
+| **0.350 mm** | **2.850 mm** | **3.940 mm** | **2.560 mm** | **0.416 mm** | **17.826 mm** | **2.1057 mm** | **1.1057 mm** |
+| 0.400 mm | 2.900 mm | 3.990 mm | 2.510 mm | 0.466 mm | 17.876 mm | 2.0557 mm | 1.0557 mm |
+
+The preferred 0.350 mm value passes every hard gate while retaining more BladeRunner margin than 0.400 mm and giving more tail clearance than 0.300 mm.
 
 Manufacturer MTLW geometry:
 
@@ -91,7 +102,7 @@ designated -140 mating post              3.556 mm
 solder tail                              3.434 mm
 DDA insertion                            3.400 mm
 free post after insertion                0.156 mm
-lower solder-tail tip above blade PCB    0.066 mm
+lower solder-tail tip above blade PCB    0.416 mm
 ```
 
 `MTLW-106-05-G-D-140` uses the normal manufacturer orientation: the `-140` post is the DDA mating end and receives the specified 10 µin gold plating; the opposite 3.434 mm segment is the solder tail. Samtec lists this exact configuration in its Reserve program. See the [exact Samtec product page](https://www.samtec.com/products/mtlw-106-05-g-d-140) and [official MTLW series print](https://suddendocs.samtec.com/catalog_english/mtlw_th.pdf).
@@ -107,14 +118,14 @@ Measured DDA geometry:
 The 4.0 mm value already includes the 1.6 mm PCB. It must not be calculated as `1.6 + 4.0`.
 
 ```text
-adapter underside                                  2.500 mm
+adapter underside                                  2.850 mm
 + adapter PCB                                      1.000 mm
 + MTLW insulator                                   1.520 mm
 + unused designated post after insertion           0.156 mm
-= DDA socket mating face                           5.176 mm
+= DDA socket mating face                           5.526 mm
 + mating face to socket-side PCB surface           8.300 mm
 + socket-side surface to GNSS top                  4.000 mm
-= total outward stack                             17.476 mm
+= total outward stack                             17.826 mm
 ```
 
 ## Placement and BladeRunner clearance
@@ -134,9 +145,9 @@ BladeRunner clearance uses the physical slit-edge result, not slit centerline pi
 physical per-blade clearance       19.9317 mm
 safety reserve                      1.0000 mm
 design maximum                     18.9317 mm
-approved outward stack             17.4760 mm
-physical nominal clearance          2.4557 mm
-margin after 1.0 mm reserve         1.4557 mm
+approved outward stack             17.8260 mm
+physical nominal clearance          2.1057 mm
+margin after 1.0 mm reserve         1.1057 mm
 ```
 
 CI authenticates the pinned official `half body.stl`, rechecks its mesh encoding, triangle count, hash, and outer bounds, and applies the previously slit-edge-derived 19.9317 mm physical clearance. It does not substitute the obsolete `(-1.5, 45.0)` clearance box or the former 36 mm total-depth rule.
@@ -150,7 +161,7 @@ CI authenticates the pinned official `half body.stl`, rechecks its mesh encoding
 - `models/bladerunner/19-inch/left bracket.stl`
 - `models/bladerunner/19-inch/right bracket.stl`
 
-Pure-Python validation checks the shared transforms, pin-1 mapping, designated J2 mating end, connector reach, 3.40 mm insertion, solder-tail clearance, DDA XY keep-in, 17.476 mm stack, and BladeRunner margins. The CadQuery assembly stage additionally intersects the DDA, J2, and adapter-outside-J1 region against the exact official Compute Blade B-Rep and fails on material overlap.
+Pure-Python validation checks the shared transforms, pin-1 mapping, designated J2 mating end, connector reach, 3.40 mm insertion, the 0.30 mm minimum tail clearance, DDA XY keep-in, 17.826 mm stack, 2.00 mm minimum physical clearance, and 1.00 mm minimum post-reserve margin. The CadQuery assembly stage additionally intersects the DDA, J2, and adapter-outside-J1 region against the exact official Compute Blade B-Rep and fails on material overlap.
 
 The confirmed DDA pin-1 orientation remains:
 
@@ -191,8 +202,8 @@ GitHub Actions repeats deterministic generation, connectivity verification, unit
 
 ## Prototype-only risks
 
-- Actual HLE seating against the Compute Blade header plastic and practical soldering on 1.0 mm FR-4.
-- Production tolerance and solder-fillet confirmation for the nominal 0.066 mm gap between the J2 tail tips and Compute Blade PCB plane.
+- First-article confirmation that the specified 0.350 mm HLE seating gap can be set and retained using the assembly gauge/fixture, plus practical soldering on 1.0 mm FR-4.
+- Production-tolerance and solder-fillet confirmation for the nominal 0.416 mm gap between the J2 tail tips and Compute Blade PCB plane.
 - Physical connector insertion and extraction forces.
 - Residual differences between simplified connector bodies and production parts.
 - Final assembled fit in a real 19-inch BladeRunner, including manufacturing and seating tolerances.

@@ -23,12 +23,15 @@ from design_config import (
     DDA_GNSS_TOP_Z_MM,
     DDA_MIN_ACCEPTABLE_INSERTION_MM,
     J1_CANDIDATE_PART,
+    J1_INSERTION_DEPTH_MIN_MM,
+    J1_SEATING_GAP_MM,
     J1_ORIGIN_MM,
     J1_SOCKET_BODY_HEIGHT_MM,
     J2_BODY_HEIGHT_MM,
     J2_BODY_PLAN_MM,
     J2_CANDIDATE_PART,
     J2_LOWER_POST_LENGTH_MM,
+    J2_LOWER_TIP_Z_MM,
     J2_MATING_POST_LENGTH_MM,
 )
 from fetch_reference_cad import REFERENCE_DIR
@@ -367,6 +370,10 @@ def main() -> int:
         "j1": {"part": J1_CANDIDATE_PART, "model": "manufacturer-dimensioned approximation"},
         "j2": {"part": J2_CANDIDATE_PART, "model": "manufacturer-dimensioned conventional-mount approximation"},
         "geometry_state": {
+            "j1_seating_gap_mm": J1_SEATING_GAP_MM,
+            "adapter_underside_mm": ADAPTER_Z_ABOVE_BLADE_MM,
+            "j1_required_bottom_entry_reach_mm": J1_INSERTION_DEPTH_MIN_MM,
+            "j2_tail_clearance_to_compute_blade_mm": J2_LOWER_TIP_Z_MM,
             "dda_assembly_basis": DDA_ASSEMBLY_BASIS,
             "derived_axis_vectors": assembly_axis_vectors(),
             "dda_insertion_mm": DDA_MIN_ACCEPTABLE_INSERTION_MM,
