@@ -1,191 +1,175 @@
-# Compute Blade ↔ DDA GPS/RTC adapter, upright revision
+# Compute Blade ↔ DDA GPS/RTC adapter — parallel-DDA revision
 
-This repository contains a passive, two-connector KiCad adapter. The adapter PCB remains parallel to the Compute Blade PCB; right-angle J2 turns the Dark Dragons Astronomy (DDA) GPS/RTC module through 90° so it stands upright in the IMG_0542-style orientation and projects toward the blade's top/interior **+Y** side. GPIO names are descriptions only: every connection uses **physical header pin numbers**.
+This repository contains a passive two-connector KiCad adapter that remaps the Dark Dragons Astronomy GPS PPS signal while keeping the unmodified DDA PCB parallel to the Compute Blade PCB. Physical connector pin numbers are authoritative; GPIO names are descriptions and are never interpreted as BCM pin numbers.
 
-The project targets **KiCad 10.0.5** with the pinned `kicad/kicad:10.0.5-full` CI image. Local KiCad is not required.
+The project targets **KiCad 10.0.5** through the pinned `kicad/kicad:10.0.5-full` CI image.
 
-> **Fabrication warning:** CI success is necessary, not sufficient. Connector-body seating, the DDA socket's internal contact geometry, final STEP alignment, and installed BladeRunner clearance still require a fit-check prototype. Do not order multiple boards solely because ERC, DRC, and simplified geometry validation pass.
+> Passing connectivity, ERC, DRC, CAD collision, and clearance checks is required but does not make this design fabrication-ready. Reverse-use connector behavior, seating forces, and final BladeRunner fit still require a physical prototype.
 
-## Assembly and connector choices
+## Approved architecture
 
-- **J1:** [Samtec SLW-105-01-G-D](https://www.samtec.com/products/slw-105-01-g-d), a vertical 2x5 female through-hole socket on the adapter bottom. The PCB uses KiCad's `Connector_PinSocket_2.54mm:PinSocket_2x05_P2.54mm_Vertical` footprint and generic standard STEP model.
-- **J2:** [Samtec TSW-106-08-G-D-RA](https://www.samtec.com/products/tsw-106-08-g-d-ra), a right-angle 2x6 male through-hole header on the adapter top. The PCB uses KiCad's `Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal` footprint and generic standard STEP model.
-- `J2_FOOTPRINT_ROTATION_DEG = -90.0` in KiCad's Y-down board coordinates maps J2's local +X mating posts to assembly +Y, toward the top/interior side.
-- `J2_CENTERLINE_OFFSET_MM = 22.7` places J2's pin-1 origin so its six positions still occupy the former X span of 10.0…22.7 mm after the connector is turned 180° in-plane. This prevents J1/J2 footprint overlap while retaining the established connector region.
-- `J2_Y_INSET_MM = -0.5` shifts the J2 origin slightly inward so the far side of the DDA retains at least the configured 0.5 mm PCB-edge margin.
-- The board is two-layer, 0.8 mm FR-4 with nominal 1 oz / 35 µm copper. Power and ground routes are 0.50 mm; signal routes are 0.25 mm.
+- **J1:** Samtec `HLE-105-02-L-DV-PE-BE`, 2×5, 2.54 mm, bottom-entry/pass-through receptacle.
+- **J2:** Samtec `MTLW-106-06-G-D-035`, 2×6, 2.54 mm, reverse-mounted/pass-through male header.
+- Adapter: 2-layer 0.6 mm FR-4, nominal 1 oz / 35 µm copper.
+- Compute Blade, adapter, and DDA PCB planes are all XY.
+- DDA socket/battery face points inward (−Z), toward the adapter and Compute Blade.
+- DDA GNSS face points outward (+Z), toward the neighboring blade.
+- The DDA remains electrically and mechanically unmodified.
 
-The KiCad 3D connector models are not manufacturer-controlled models for these exact orderable parts. Samtec offers configured CAD through its product portal, but the repository validates dimensions available in its manufacturer series drawings and conservatively models the remaining interface.
+The exact footprints are project-local in `pcb/Adapter.pretty/`. They use the manufacturer 2.54 mm patterns, explicit fab outlines, courtyards, 1.0 mm drills, and 1.8 mm pads. That gives a nominal 0.40 mm annular ring, compatible with ordinary 0.6 mm two-layer service at many board houses. The selected fabricator must still confirm 0.6 mm stock, 1.0 mm plated drills, and its finished-hole/annular-ring rules before ordering.
 
-The selected `-08` is physically the required conventional double-row right-angle topology: solder tails enter the horizontal adapter in Z, mating posts point +Y, six positions run parallel to X, and the mating rows stack in Z. Samtec specifies a 0.230 in / 5.842 mm mating post and 0.090 in / 2.286 mm tail. The evaluated [TSW-106-09-G-D-RA](https://www.samtec.com/products/tsw-106-09-g-d-ra) has the same 5.842 mm mating post but a 0.290 in / 7.366 mm tail. It adds 5.08 mm of unnecessary below-board tail without improving DDA engagement, so it is not mechanically preferable here.
+The generated connector STEP models are manufacturer-dimensioned approximations because exact configured Samtec CAD is not available to deterministic unauthenticated CI. They are not substitutes for a first-article fit test.
 
-## Coordinate system and axis-derived DDA placement
-
-One coordinate convention is used by PCB placement, collision validation, STEP export, SVG generation, and PNG rendering:
+## Coordinate and orientation contract
 
 ```text
 X = Compute Blade long axis
 Y = Compute Blade width
-Z = outward normal from the Compute Blade PCB, toward the reference top-view camera
-DDA PCB plane = XZ
-DDA socket mating axis = +Y, toward the top/interior side
-six connector columns = -X (parallel to the blade X axis)
-row 1 to row 2 = -Z
-J2 solder tails = +Z into the adapter PCB
+Z = outward normal from the Compute Blade PCB
+
+Compute Blade PCB plane = XY
+adapter PCB plane       = XY
+DDA PCB plane           = XY
+DDA PCB normal          = +Z
+DDA socket mating axis  = -Z toward adapter
+J2 mating posts         = +Z
+J2 six-position axis    = +X
+J2 row 1 → row 2        = -Y
 ```
 
-The reference photograph is authoritative for orientation. Placement is derived from the final physical axis constraints rather than selected by interpreting Euler angles. The DDA-local X axis follows its six-pin row, local Y runs from its measured top edge toward its bottom edge, and local Z runs from the socket mating face toward the DDA PCB. The resulting local-to-assembly basis is:
+The shared DDA transform is the identity basis:
 
 ```text
-basis = [[-1, 0, 0],
-         [ 0, 0, 1],
-         [0, 1,  0]]
+[[1, 0, 0],
+ [0, 1, 0],
+ [0, 0, 1]]
 ```
 
-`DDA_COLUMN_AXIS`, `DDA_TOP_TO_BOTTOM_AXIS`, `DDA_PCB_NORMAL`, `DDA_SOCKET_MATING_AXIS`, and the matching J2 axes in `scripts/design_config.py` are the single source used by validation, STEP/SVG generation, and PNG rendering. CI derives vectors from modeled pin centers and hard-fails unless the DDA PCB normal is +Y, columns are −X, socket/J2 mating is +Y, J2 row 1→2 is −Z, and solder tails are +Z. Mutation tests reject a wrong PCB normal, reversed mating direction, or rows separated in Y.
+`scripts/design_config.py` is the sole parameter source used by the PCB generator, geometry validator, STEP generator, SVG generator, and PNG renderer. Unit tests hard-fail if the DDA becomes upright, the GNSS face points inward, the mating direction reverses, or J2’s columns/rows change axes.
 
-The validator extracts the exact `Board` solid from the pinned Compute Blade STEP. Its global PCB bounds are X `0.006..250.016` mm and Y `0.006..42.505` mm. Relative to J3, the selected complete DDA envelope is X `8.100..24.600` mm and Y `8.632..23.382` mm. It therefore has 26.951 mm clearance to the PCB −Y edge and 0.798 mm to the +Y edge. `DDA_PCB_ENVELOPE_MARGIN_MM = 0.5` is enforced against the PCB outline for the PCB, socket, and both component keepouts. A regression mutation reflects the DDA into −Y and must fail the −Y-edge check.
+## Exact physical-pin mapping
 
-## Exact electrical mapping
-
-| Physical pin | J1 Compute Blade meaning | J2 DDA meaning | Adapter net |
+| Physical pin | J1 Compute Blade | J2 DDA | Adapter net |
 |---:|---|---|---|
 | 1 | 3V3 | 3V3 | `3V3` |
-| 2 | 5V | unused | `5V_PIN2` |
+| 2 | 5V | unused by DDA | `5V_PIN2` |
 | 3 | GPIO2 / SDA | SDA | `SDA_GPIO2` |
-| 4 | 5V | unused | `5V_PIN4` |
+| 4 | 5V | unused by DDA | `5V_PIN4` |
 | 5 | GPIO3 / SCL | SCL | `SCL_GPIO3` |
 | 6 | GND | GND | `GND_PIN6` |
-| 7 | GPIO4 / PPS_IN | unused on DDA | `PPS_GPIO4` |
+| 7 | GPIO4 / PPS_IN | unused DDA position | `PPS_GPIO4` |
 | 8 | GPIO14 / UART_TX | GPS_RX | `UART_TX_TO_GPS_RX` |
-| 9 | GND | pass-through | `GND_PIN9` |
+| 9 | GND | unused by DDA | `GND_PIN9` |
 | 10 | GPIO15 / UART_RX | GPS_TX | `UART_RX_FROM_GPS_TX` |
 | 11 | — | RTC_INT | **NC** |
 | 12 | — | GPS_PPS | `PPS_GPIO4` |
 
-J1.1↔J2.1 through J1.10↔J2.10 are exact physical-pin mappings, with J2.12 additionally tied to J1.7. Thus J1.7, J2.7, and J2.12 are one net. J2.11 is explicitly no-connect. J2.12 carries GPS PPS to Compute Blade physical pin 7 (GPIO4); J2.11 RTC_INT is intentionally unused.
+Pins J1.1–J1.10 map one-for-one to J2.1–J2.10. J2.12 additionally joins J1.7/J2.7, so GPS PPS reaches Compute Blade physical pin 7 / GPIO4. J2.11 remains explicitly unconnected. Duplicate rails remain separate: `5V_PIN2`, `5V_PIN4`, `GND_PIN6`, and `GND_PIN9` are not merged by the adapter.
 
-The DDA does not use pins 2 or 4, but their requested copper connections remain present and separate. Energizing them at 5 V matches direct connection to the Compute Blade header. The adapter does not merge the duplicate 5 V nets or duplicate GND nets.
+## Dimension provenance and stack calculation
 
-## Confirmed DDA pin-1 orientation
+Physically measured Compute Blade dimensions:
 
-DDA pin 1 is physically confirmed:
+- PCB surface to header-plastic top: 2.500 mm.
+- PCB surface to pin tip: 9.000 mm.
+- Exposed post: 6.500 mm.
 
-- looking into the connector holes from the DDA PCB underside, with the connector horizontal, pin 1 is **bottom-right**;
-- looking from the top/component side with “Dark Dragons” readable, pin 1 is **bottom-left**.
+Manufacturer HLE requirements:
 
-The DDA geometric row farther from its measured top PCB edge (6.04 mm) is therefore the physical-pin-1 row. The Samtec TSW series drawing identifies physical pin 1 as the upper mating row in a double-row right-angle part. The selected assembly maps those same physical positions; CI checks the footprint rotation, pad 1 and pad 2 coordinates, TSW upper/lower row relationship, DDA top/underside views, and selected orientation. Electrical pins are never inferred or renumbered from this geometry.
+- Bottom-entry minimum reach: 2.590 mm plus host PCB thickness.
+- With a 0.600 mm adapter, required reach is 3.190 mm.
+- The measured 6.500 mm post exceeds this requirement by 3.310 mm.
+- `-PE-BE` is open/pass-through, so excess post does not bottom in a closed socket.
+- Adapter underside is 2.500 mm above the Compute Blade PCB, with `J1_SEATING_GAP_MM = 0.0`.
 
-`DDA_ROTATION_180 = False` is the confirmed/default assembly. The generator still creates a `rot180` collision model around J2's +Y mating axis for comparison, but selecting it fails validation because it contradicts the confirmed pin-1 orientation (and crosses the conservative lower BladeRunner clearance). The alternate is diagnostic only, not an electrical or fabrication variant.
-
-## Dimension provenance
-
-### Physically measured
-
-- Compute Blade PCB surface to header-plastic top: **2.5 mm**.
-- Compute Blade PCB surface to male-pin tip: **9.0 mm**.
-- Exposed male post above the plastic: **6.5 mm**.
-- DDA PCB: 16.5 × 22.5 × 1.7 mm.
-- DDA socket body: 15.6 mm along the six-pin row and 5.0 mm across rows.
-- DDA top edge to socket near edge: 2.5 mm; row centerlines: 3.5 mm and 6.04 mm.
-- First column center: 1.90 mm from the left edge, then 2.54 mm pitch.
-- DDA PCB surface to socket mating face: 8.3 mm.
-- Conservative component envelopes: GNSS side 4.0 mm and battery/RTC side 4.75 mm.
-
-### Manufacturer-specified
-
-The [SLW manufacturer series drawing](https://suddendocs.samtec.com/prints/slw-1xx-01-x-x-mkt.pdf) gives a 0.180 in / **4.572 mm** body and 0.085–0.115 in / **2.16–2.92 mm** acceptable insertion depth. The measured 6.5 mm exposed Compute Blade post exceeds the 2.16 mm minimum; CI asserts this.
-
-The [TSW manufacturer series drawing](https://suddendocs.samtec.com/prints/tsw-xxx-xx-xxx-x-xx-xxx-mkt.pdf) gives the `-08` right-angle post as nominally 0.230 in / **5.842 mm**, its tail as 0.090 in / **2.286 mm**, the double-row body height as 0.219 in / **5.56 mm** reference, locates pin 1 at 0.040 in / **1.0 mm** reference from the corresponding body edge, and shows physical pin 1 as the upper right-angle row. The exact product page confirms 12 pins, two rows, right-angle orientation, 2.54 mm pitch, and 0.635 mm square posts. CI asserts Z-stacked mating rows, +Z solder tails, and the DDA/J2 +Y mating axis in addition to engagement and body clearance.
-
-### User-defined acceptance requirement
-
-The DDA socket is physically known to accept at least the Compute Blade's full **6.5 mm** exposed post. Although its spring contacts begin retaining before full seating, the user's conservative minimum for strong seating and retention is the point where no more than **3.1 mm** remains exposed:
+Manufacturer MTLW geometry:
 
 ```text
-6.500 mm Compute Blade exposed post
-- 3.100 mm maximum acceptable remaining exposure
-= 3.400 mm DDA minimum acceptable insertion
+OAL                                      7.620 mm
+insulator                                1.520 mm
+-035 lower segment                       0.889 mm
+reverse upper/DDA mating segment         5.211 mm
+DDA insertion                            3.400 mm
+free post after insertion                1.811 mm
+lower post tip above blade PCB           0.091 mm
 ```
 
-`DDA_MIN_ACCEPTABLE_INSERTION_MM = 3.40` is a design requirement and CI assertion, not an estimated contact depth. Against the TSW's 5.842 mm mating post:
+The segment normally treated as the MTLW tail is used as the DDA mating post. The selected `-G` configuration provides plating on this reverse-used segment, but its contact wear, retention, and long-term behavior in this unconventional role remain prototype-validation items.
+
+Measured DDA geometry:
+
+- PCB: 16.5 × 22.5 × **1.6 mm**.
+- Socket mating face to socket-side PCB surface: 8.3 mm.
+- Socket-side PCB surface to GNSS top: **4.0 mm total**.
+- GNSS projection beyond the opposite PCB surface: 2.4 mm.
+- Battery/RTC inward local envelope: 4.75 mm.
+
+The 4.0 mm value already includes the 1.6 mm PCB. It must not be calculated as `1.6 + 4.0`.
 
 ```text
-5.842 mm TSW mating post
-- 3.400 mm required DDA insertion
-= 2.442 mm remaining free post length
+adapter underside                                  2.500 mm
++ MTLW OAL - body - lower segment - insertion      1.811 mm
+= DDA socket mating face                           4.311 mm
++ mating face to socket-side PCB surface           8.300 mm
++ socket-side surface to GNSS top                  4.000 mm
+= total outward stack                             16.611 mm
 ```
 
-The post-length calculation proves sufficient usable pin length only. The separate body-clearance check places the DDA socket at exactly 3.40 mm insertion and tests it against a conservative simplified TSW plastic-body/right-angle-elbow keepout.
+## Placement and BladeRunner clearance
 
-### Calculated
-
-The nominal adapter-PCB underside height above the Compute Blade PCB is:
+The official Compute Blade STEP anchors J3 at `(133.075077, 18.325065, 0.0)` mm. The selected complete DDA projection is:
 
 ```text
-2.500 mm measured header-plastic height
-+ 4.572 mm SLW socket-body height
-= 7.072 mm nominal J1 stack
-+ J1_SEATING_GAP_MM (0.000 mm default)
-= 7.072 mm adapter-PCB underside height
+X = 160.000 .. 176.500 mm
+Y =  19.500 ..  42.000 mm
 ```
 
-The adapter top surface is nominally **7.872 mm** above the Compute Blade PCB because the board is 0.8 mm thick. `J1_SEATING_GAP_MM` is deliberately separate and defaults to `0.0`; it must not be folded into the nominal stack.
+The validator extracts the official PCB solid bounds from the STEP and requires the full DDA PCB, socket, GNSS envelope, and inward battery envelope to remain inside its XY footprint with a 0.5 mm configured margin.
 
-### Explicit modeling assumptions
+BladeRunner clearance uses the physical slit-edge result, not slit centerline pitch:
 
-At the required 3.40 mm insertion, the simplified model leaves **2.442 mm** axial clearance between the DDA socket body and the TSW body/elbow keepout. This passes the repository's conservative box-model check. Because the exact configured TSW CAD and the DDA socket-body solid are not present, exact TSW plastic/elbow interaction at 3.40 mm insertion still requires physical confirmation; the positive simplified clearance is not a claim of exact full-mating validation.
+```text
+physical per-blade clearance       19.9317 mm
+safety reserve                      1.0000 mm
+design maximum                     18.9317 mm
+approved outward stack             16.6110 mm
+physical nominal clearance          3.3207 mm
+margin after 1.0 mm reserve         2.3207 mm
+```
 
-The DDA model treats the GNSS-side envelope as facing the mating plane and the battery/RTC envelope as facing away in the selected assembly. Both are conservative full-face boxes. Pin numbering remains a separate electrical concern.
+CI authenticates the pinned official `half body.stl`, rechecks its mesh encoding, triangle count, hash, and outer bounds, and applies the previously slit-edge-derived 19.9317 mm physical clearance. It does not substitute the obsolete `(-1.5, 45.0)` clearance box or the former 36 mm total-depth rule.
 
-## Official reference CAD and geometry validation
+## Official CAD and mechanical validation
 
-`scripts/fetch_reference_cad.py` downloads and authenticates upstream Compute Blade CAD at immutable commit [`9c7e472f4fb5c74401d17cdc7a766254d78a32c6`](https://github.com/uptime-lab/compute-blade/commit/9c7e472f4fb5c74401d17cdc7a766254d78a32c6):
+`scripts/fetch_reference_cad.py` authenticates upstream CAD at immutable Compute Blade commit `9c7e472f4fb5c74401d17cdc7a766254d78a32c6`:
 
 - `models/blade/v1.0-mk4/v1.0_mk4_DEV.step`
 - `models/bladerunner/19-inch/half body.stl`
 - `models/bladerunner/19-inch/left bracket.stl`
 - `models/bladerunner/19-inch/right bracket.stl`
 
-The files are downloaded into ignored `mechanical/reference/` storage. The validator parses J3's actual placement from the official STEP: origin `(133.075077, 18.325065, 0.0)` mm and +X along the blade long axis. It also extracts the `Board` product's exact B-Rep bounds instead of substituting an assumed rectangle. Simplified adapter/DDA coordinates are transformed into and reported in this J3-anchored frame. The measured 2.5 mm plastic height and 9.0 mm pin-tip height are hard constraints rather than values inferred from tessellation.
+Pure-Python validation checks the shared transforms, pin-1 mapping, connector reach, 3.40 mm insertion, lower-post clearance, DDA XY keep-in, 16.611 mm stack, and BladeRunner margins. The CadQuery assembly stage additionally intersects the DDA, J2, and adapter-outside-J1 region against the exact official Compute Blade B-Rep and fails on material overlap.
 
-This remains conservative box/mesh validation, not full B-Rep interference analysis. It authenticates the STEP and BladeRunner meshes, checks the J3 anchor/direction, measured header stack, SLW insertion minimum, the 3.40 mm J2 engagement requirement, 2.442 mm post margin, simplified body/elbow separation, confirmed pin-1 orientation, +Y placement, exact-PCB XY containment with margin, nearby-component keepouts, DDA socket-to-PCB offset, and BladeRunner Y/Z envelope. It also enforces a 36.0 mm maximum assembled Z-depth regression limit so a wrong-axis transform cannot silently return. The corrected selected orientation passes these simplified checks.
+The confirmed DDA pin-1 orientation remains:
 
-For the selected state, validation reports the full assembly (excluding the optional BladeRunner clearance frame) at X `−0.500..250.016` mm, Y `0.006..42.505` mm, and Z `−5.900..28.892` mm in the official STEP frame. Those spans are approximately 250.516 × 42.499 × 34.792 mm; total Z depth is **34.792 mm**.
+- readable GNSS/component side: bottom-left;
+- underside/socket-hole view: bottom-right.
 
-## Inspecting the assembled 3D model
+This is encoded independently of electrical net names.
 
-`scripts/generate_assembly_model.py` produces an inspectable, flattened multi-solid assembly at `mechanical/generated/full_assembly.step`. It imports the exact pinned official Compute Blade DEV B-Rep, derives the 0.8 mm adapter PCB outline and connector holes from the generated KiCad board, places J1/J2 from the validated board/configuration coordinates, and places the confirmed-orientation DDA at exactly 3.40 mm insertion. It imports the same axis-derived basis and +Y mating state used by `validate_geometry.py` and `mechanical_geometry.py`; it has no independent “looks right” placement.
+## Inspecting the assembly
 
-The STEP is deliberately exported as a flat compound rather than a CadQuery hierarchical assembly. Some lightweight STEP viewers, including several VS Code extensions, show the hierarchical form as an empty scene even though OCCT/FreeCAD can reopen all of its solids. CI reopens the flattened file, checks its solid count and X/Y/Z bounds, and fails if geometry was lost. `full_assembly_lightweight.step` is also provided: it replaces the highly detailed official Compute Blade B-Rep with its validated PCB envelope while retaining the adapter, connector, pin, and DDA geometry. Use that file when a viewer cannot comfortably display the roughly 100 MB exact-blade assembly.
+`scripts/generate_assembly_model.py` produces:
 
-The assembly geometry distinguishes:
+- `mechanical/generated/full_assembly.step`
+- `mechanical/generated/full_assembly_lightweight.step`
+- `mechanical/generated/full_assembly_with_bladerunner.step`
+- standalone J1/J2 approximation STEP models
+- top, side, end, isometric, J1-closeup, and J2/DDA-closeup PNGs
 
-- gray: exact official Compute Blade geometry;
-- green: actual adapter outline/holes and simplified measured DDA PCB;
-- black: approximate connector/socket plastic;
-- gold: dimension-driven pins and simplified bent tails;
-- red: confirmed DDA physical pin 1;
-- magenta/yellow: J1 and J2 +Y mating-axis markers.
+The full assembly imports the exact official Compute Blade B-Rep. The BladeRunner-context assembly adds the validated 18.9317 mm design plane and 19.9317 mm physical-clearance plane. All placement uses the same boxes and transforms as `validate_geometry.py`; there is no separate visual-only placement.
 
-J1 and J2 are dimension-driven approximations using the SLW/TSW manufacturer dimensions plus the actual KiCad pad positions. Exact configured Samtec STEP downloads are not available for deterministic unauthenticated CI use. The DDA is the existing measured simplified model. The adapter model represents board outline, holes, and thickness; copper and cosmetic board details are intentionally omitted because they do not change the mechanical stack.
-
-`mechanical/generated/full_assembly_with_bladerunner.step` adds the exact J3-relative BladeRunner clearance frame used by validation. It does **not** apply an invented transform to the upstream BladeRunner STL: the official STL and Compute Blade STEP do not expose a shared installed-assembly datum in this repository. The gray frame is therefore an explicit clearance-envelope approximation, not the exact chassis solid.
-
-Ten fixed-view renders are generated alongside the STEP files. They use a deterministic software projection of the same shared adapter, connector, pin, and DDA solids plus the official Compute Blade PCB bounds. This avoids driver-dependent blank OpenGL/VTK framebuffers in headless CI. The renderer and an independent verifier both require meaningful foreground area and pixel variation, so blank PNGs fail the workflow. The first three are explicit orientation inspections:
-
-- `render_top.png`: +Z camera looking along −Z; the DDA PCB is edge-on near the +Y edge and J2 points +Y;
-- `render_end.png`: +X camera looking along −X; the DDA is vertical and J2 rows stack in Z;
-- `render_side.png`: +Y camera looking along −Y; the DDA PCB face is visible;
-- `render_iso.png` provides the overall three-quarter view;
-- `render_j1_closeup.png` for the Compute Blade header, J1 body, and adapter elevation;
-- `render_j2_closeup.png` for the right-angle posts, 3.40 mm DDA socket position, upright DDA PCB, and body-clearance region.
-
-The same four principal views are also emitted under the explicit revision names `assembly_top.png`, `assembly_x_view.png`, `assembly_y_view.png`, and `assembly_iso.png`.
-
-Open the STEP files in FreeCAD or another multi-solid STEP viewer. On a successful workflow run, download `compute-blade-dda-adapter-reports`; it contains the two exact-blade flattened assemblies, the lightweight assembly, all ten renders, and `full_assembly_manifest.json` with the exact parameters, provenance, bounds, render-content metrics, and round-trip verification results. The large STEP files are generated in CI rather than committed.
-
-The visual assembly is an inspection aid. It does not replace the physical connector and BladeRunner fit-check prototype.
+Open the STEP files in FreeCAD. From a successful GitHub Actions run, download the `compute-blade-dda-adapter-reports` artifact for the STEP files, fixed renders, manifests, ERC/DRC reports, and board views. The visual model is an inspection aid and does not replace a physical prototype.
 
 ## Regeneration and CI
 
@@ -195,22 +179,21 @@ python3 scripts/generate_schematic.py
 python3 scripts/generate_or_update_pcb.py
 python3 scripts/generate_mechanical_model.py
 python3 scripts/verify_connectivity.py
-python3 scripts/validate_geometry.py --compare-variants
 python3 -m unittest discover -s scripts -p 'test_*.py' -v
+python3 scripts/validate_geometry.py
 python3 -m pip install --requirement requirements-assembly.txt
 python3 scripts/generate_assembly_model.py
 ```
 
-`.github/workflows/pcb-ci.yml` runs those deterministic generation, unit, connectivity, and geometry checks on push, pull request, and manual dispatch. It then uses KiCad 10.0.5 for ERC, error-gated DRC, schematic/board views, Gerbers, and Excellon drills. No failure is hidden. Download `compute-blade-dda-adapter-manufacturing` from a workflow run for the Gerber ZIP and `compute-blade-dda-adapter-reports` for reports and renders.
+GitHub Actions repeats deterministic generation, connectivity verification, unit tests, geometry validation, STEP round-trip checks, blank-render checks, KiCad ERC/DRC, Gerber export, and Excellon drill export. Download `compute-blade-dda-adapter-manufacturing` for `compute-blade-dda-adapter-gerbers.zip`; the BOM is included in `compute-blade-dda-adapter-reports`.
 
-The deterministic board embeds connector drawings while retaining official KiCad library IDs and pad geometry. The all-severity DRC report records two non-fatal `lib_footprint_mismatch` warnings; the error-only DRC gate must remain clean.
+## Prototype-only risks
 
-## Remaining unresolved mechanical items
+- Reverse-use MTLW contact plating, wear, and retention behavior.
+- Actual HLE seating against the Compute Blade header plastic and practical soldering on 0.6 mm FR-4.
+- Physical connector insertion and extraction forces.
+- Residual differences between simplified connector bodies and production parts.
+- Final assembled fit in a real 19-inch BladeRunner, including manufacturing and seating tolerances.
+- First-article confirmation before ordering multiple boards.
 
-- Whether the SLW socket physically bottoms against the Compute Blade header plastic exactly as modeled (`J1_SEATING_GAP_MM = 0.0`).
-- Whether exact TSW plastic/elbow geometry permits at least 3.40 mm DDA insertion.
-- Residual approximation between the parsed STEP J3 placement and the real extension-header mating datum/nearby detailed B-Rep surfaces.
-- Actual installed 19-inch BladeRunner clearance beyond the authenticated mesh bounds and conservative envelope.
-- A final physical fit-check prototype before ordering multiple boards.
-
-The DDA pin-1 orientation, Compute Blade header heights, exposed-post length, and 7.072 mm nominal J1 stack are confirmed inputs and are no longer unresolved. This board is **not yet fabrication-ready** because the remaining connector-body and chassis-fit items above have not all been validated from exact CAD or physical assembly.
+The project must not be described as fabrication-ready until those physical checks are closed.

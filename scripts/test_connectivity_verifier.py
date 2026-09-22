@@ -18,7 +18,7 @@ class ConnectivityVerifierTests(unittest.TestCase):
     def test_generated_pcb_routes_reach_transformed_pads(self):
         self.assertEqual([], verifier.validate_pcb_routing(verifier.PCB_PATH))
 
-    def test_bottom_j1_uses_explicit_standard_socket_coordinates(self):
+    def test_bottom_entry_hle_uses_explicit_physical_pin_coordinates(self):
         tree = verifier.parse_sexpr(verifier.PCB_PATH.read_text(encoding="utf-8"))
         j1 = next(
             footprint for footprint in verifier.children(tree, "footprint")
@@ -27,20 +27,21 @@ class ConnectivityVerifierTests(unittest.TestCase):
         pad2 = next(pad for pad in verifier.children(j1, "pad") if pad[1] == "2")
         self.assertEqual((97.46, 60.16), verifier.transformed_pad(j1, pad2))
 
-    def test_j2_is_explicit_right_angle_footprint_pointing_top_side_plus_y(self):
+    def test_j2_is_explicit_reverse_mtlw_with_columns_x_and_rows_y(self):
         tree = verifier.parse_sexpr(verifier.PCB_PATH.read_text(encoding="utf-8"))
         j2 = next(
             footprint for footprint in verifier.children(tree, "footprint")
             if verifier.properties(footprint).get("Reference") == "J2"
         )
         self.assertEqual(
-            "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Horizontal",
+            "Adapter:Samtec_MTLW-106-06-G-D-035_Reverse",
             j2[1],
         )
-        self.assertEqual("-90", verifier.child(j2, "at")[3])
+        self.assertEqual("90", verifier.child(j2, "at")[3])
         pads = {pad[1]: pad for pad in verifier.children(j2, "pad")}
-        self.assertEqual((122.7, 59.66), verifier.transformed_pad(j2, pads["1"]))
-        self.assertEqual((122.7, 62.2), verifier.transformed_pad(j2, pads["2"]))
+        self.assertEqual((128.825, 67.375), verifier.transformed_pad(j2, pads["1"]))
+        self.assertEqual((128.825, 64.835), verifier.transformed_pad(j2, pads["2"]))
+        self.assertEqual((131.365, 67.375), verifier.transformed_pad(j2, pads["3"]))
 
     def test_power_short_is_rejected(self):
         bad = copy.deepcopy(self.good)

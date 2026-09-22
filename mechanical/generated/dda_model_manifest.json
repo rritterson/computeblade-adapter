@@ -1,152 +1,112 @@
 {
-  "assembly_parameters_mm": {
-    "adapter_pcb_underside_above_blade": 7.072,
-    "compute_blade_exposed_post": 6.5,
-    "compute_blade_header_pin_tip": 9.0,
-    "compute_blade_header_plastic_top": 2.5,
-    "dda_acceptable_remaining_exposed_post": 3.1,
-    "dda_min_acceptable_insertion": 3.4,
-    "j1_minimum_insertion": 2.16,
-    "j1_nominal_stack": 7.072,
-    "j1_seating_gap": 0.0,
-    "j2_mating_post": 5.842,
-    "j2_post_margin_after_minimum_insertion": 2.442
-  },
-  "confirmed_dda_pin1": {
-    "top_component_side": "bottom-left",
-    "underside_hole_view": "bottom-right"
-  },
+  "adapter_thickness_mm": 0.6,
+  "adapter_underside_mm": 2.5,
+  "architecture": "parallel DDA, GNSS outward +Z",
+  "boxes_relative_to_j3_mm": [
+    {
+      "name": "dda_pcb",
+      "xmax": 43.42492282606,
+      "xmin": 26.924922826059998,
+      "ymax": 23.674935193086,
+      "ymin": 1.1749351930860001,
+      "zmax": 14.211,
+      "zmin": 12.611
+    },
+    {
+      "name": "dda_socket",
+      "xmax": 42.974922826059995,
+      "xmin": 27.374922826059997,
+      "ymax": 8.674935193086,
+      "ymin": 3.674935193086,
+      "zmax": 12.611,
+      "zmin": 4.311
+    },
+    {
+      "name": "dda_gnss_envelope",
+      "xmax": 43.42492282606,
+      "xmin": 26.924922826059998,
+      "ymax": 23.674935193086,
+      "ymin": 1.1749351930860001,
+      "zmax": 16.611,
+      "zmin": 14.211
+    },
+    {
+      "name": "dda_battery_rtc_inward_envelope",
+      "xmax": 43.42492282606,
+      "xmin": 26.924922826059998,
+      "ymax": 23.674935193086,
+      "ymin": 1.1749351930860001,
+      "zmax": 12.611,
+      "zmin": 7.861000000000001
+    }
+  ],
   "dda_assembly_basis": [
     [
-      -1.0,
+      1.0,
       0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
       0.0
     ],
     [
       0.0,
       0.0,
       1.0
-    ],
-    [
-      0.0,
-      1.0,
-      0.0
     ]
   ],
+  "dda_insertion_mm": 3.4,
+  "dda_mating_face_z_mm": 4.311,
   "derived_axis_vectors": {
     "dda_column_axis": [
-      -1.0,
+      1.0,
       0.0,
       0.0
     ],
     "dda_pcb_normal": [
       0.0,
-      1.0,
-      0.0
+      0.0,
+      1.0
     ],
     "dda_socket_mating_axis": [
+      0.0,
+      0.0,
+      -1.0
+    ],
+    "dda_top_to_bottom_axis": [
       0.0,
       1.0,
       0.0
     ],
     "j2_column_axis": [
-      -1.0,
+      1.0,
       0.0,
       0.0
     ],
     "j2_mating_axis": [
       0.0,
-      1.0,
-      0.0
+      0.0,
+      1.0
     ],
     "j2_row1_to_row2": [
       0.0,
-      0.0,
-      -1.0
+      -1.0,
+      0.0
     ],
     "j2_solder_tail_axis": [
       0.0,
       0.0,
-      1.0
+      -1.0
     ]
   },
-  "selected_dda_rotation_180": false,
-  "variants": {
-    "default": [
-      {
-        "name": "dda_pcb",
-        "xmax": 24.6,
-        "xmin": 8.100000000000001,
-        "ymax": 18.631999999999998,
-        "ymin": 16.932000000000002,
-        "zmax": 28.892,
-        "zmin": 6.391999999999999
-      },
-      {
-        "name": "dda_socket",
-        "xmax": 24.150000000000002,
-        "xmin": 8.55,
-        "ymax": 16.932000000000002,
-        "ymin": 8.632,
-        "zmax": 13.892,
-        "zmin": 8.892
-      },
-      {
-        "name": "dda_gnss_envelope",
-        "xmax": 24.6,
-        "xmin": 8.100000000000001,
-        "ymax": 16.932000000000002,
-        "ymin": 12.932,
-        "zmax": 28.892,
-        "zmin": 6.391999999999999
-      },
-      {
-        "name": "dda_battery_rtc_envelope",
-        "xmax": 24.6,
-        "xmin": 8.100000000000001,
-        "ymax": 23.381999999999998,
-        "ymin": 18.631999999999998,
-        "zmax": 28.892,
-        "zmin": 6.391999999999999
-      }
-    ],
-    "rot180": [
-      {
-        "name": "dda_pcb",
-        "xmax": 24.6,
-        "xmin": 8.100000000000001,
-        "ymax": 18.631999999999998,
-        "ymin": 16.932000000000002,
-        "zmax": 15.931999999999999,
-        "zmin": -6.568000000000001
-      },
-      {
-        "name": "dda_socket",
-        "xmax": 24.150000000000002,
-        "xmin": 8.55,
-        "ymax": 16.932000000000002,
-        "ymin": 8.632,
-        "zmax": 13.431999999999999,
-        "zmin": 8.431999999999999
-      },
-      {
-        "name": "dda_gnss_envelope",
-        "xmax": 24.6,
-        "xmin": 8.100000000000001,
-        "ymax": 16.932000000000002,
-        "ymin": 12.932,
-        "zmax": 15.931999999999999,
-        "zmin": -6.568000000000001
-      },
-      {
-        "name": "dda_battery_rtc_envelope",
-        "xmax": 24.6,
-        "xmin": 8.100000000000001,
-        "ymax": 23.381999999999998,
-        "ymin": 18.631999999999998,
-        "zmax": 15.931999999999999,
-        "zmin": -6.568000000000001
-      }
-    ]
-  }
+  "design_reserve_remaining_mm": 2.3206999999999987,
+  "j1": "Samtec HLE-105-02-L-DV-PE-BE",
+  "j1_required_bottom_entry_reach_mm": 3.19,
+  "j2": "Samtec MTLW-106-06-G-D-035",
+  "j2_lower_tip_z_mm": 0.09099999999999997,
+  "j2_reverse_mating_segment_mm": 5.210999999999999,
+  "outward_stack_mm": 16.611,
+  "physical_clearance_mm": 3.3206999999999987
 }
