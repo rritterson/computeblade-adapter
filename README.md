@@ -4,19 +4,19 @@ This repository contains a passive two-connector KiCad adapter that remaps the D
 
 The project targets **KiCad 10.0.5** through the pinned `kicad/kicad:10.0.5-full` CI image.
 
-> Passing connectivity, ERC, DRC, CAD collision, and clearance checks is required but does not make this design fabrication-ready. Reverse-use connector behavior, seating forces, and final BladeRunner fit still require a physical prototype.
+> Passing connectivity, ERC, DRC, CAD collision, and clearance checks is required but does not make this design fabrication-ready. Connector seating forces and final BladeRunner fit still require a physical prototype.
 
 ## Approved architecture
 
 - **J1:** Samtec `HLE-105-02-L-DV-PE-BE`, 2×5, 2.54 mm, bottom-entry/pass-through receptacle.
-- **J2:** Samtec `MTLW-106-06-G-D-035`, 2×6, 2.54 mm, reverse-mounted/pass-through male header.
-- Adapter: 2-layer 0.6 mm FR-4, nominal 1 oz / 35 µm copper.
+- **J2:** Samtec `MTLW-106-05-G-D-140`, 2×6, 2.54 mm, conventionally mounted vertical male header; its manufacturer-designated gold-plated mating post points toward the DDA.
+- Adapter: 2-layer 1.0 mm FR-4, nominal 1 oz / 35 µm copper.
 - Compute Blade, adapter, and DDA PCB planes are all XY.
 - DDA socket/battery face points inward (−Z), toward the adapter and Compute Blade.
 - DDA GNSS face points outward (+Z), toward the neighboring blade.
 - The DDA remains electrically and mechanically unmodified.
 
-The exact footprints are project-local in `pcb/Adapter.pretty/`. They use the manufacturer 2.54 mm patterns, explicit fab outlines, courtyards, 1.0 mm drills, and 1.8 mm pads. That gives a nominal 0.40 mm annular ring, compatible with ordinary 0.6 mm two-layer service at many board houses. The selected fabricator must still confirm 0.6 mm stock, 1.0 mm plated drills, and its finished-hole/annular-ring rules before ordering.
+The exact footprints are project-local in `pcb/Adapter.pretty/`. They use the manufacturer 2.54 mm patterns, explicit fab outlines, courtyards, 1.0 mm drills, and 1.8 mm pads. That gives a nominal 0.40 mm annular ring. The 1.0 mm board provides a conventional, stiff interposer, but the selected fabricator must still confirm 1.0 mm FR-4, 1.0 mm plated drills, and its finished-hole/annular-ring rules before ordering.
 
 The generated connector STEP models are manufacturer-dimensioned approximations because exact configured Samtec CAD is not available to deterministic unauthenticated CI. They are not substitutes for a first-article fit test.
 
@@ -77,24 +77,24 @@ Physically measured Compute Blade dimensions:
 Manufacturer HLE requirements:
 
 - Bottom-entry minimum reach: 2.590 mm plus host PCB thickness.
-- With a 0.600 mm adapter, required reach is 3.190 mm.
-- The measured 6.500 mm post exceeds this requirement by 3.310 mm.
+- With a 1.000 mm adapter, required reach is 3.590 mm.
+- The measured 6.500 mm post exceeds this requirement by 2.910 mm.
 - `-PE-BE` is open/pass-through, so excess post does not bottom in a closed socket.
 - Adapter underside is 2.500 mm above the Compute Blade PCB, with `J1_SEATING_GAP_MM = 0.0`.
 
 Manufacturer MTLW geometry:
 
 ```text
-OAL                                      7.620 mm
+OAL                                      8.510 mm
 insulator                                1.520 mm
--035 lower segment                       0.889 mm
-reverse upper/DDA mating segment         5.211 mm
+designated -140 mating post              3.556 mm
+solder tail                              3.434 mm
 DDA insertion                            3.400 mm
-free post after insertion                1.811 mm
-lower post tip above blade PCB           0.091 mm
+free post after insertion                0.156 mm
+lower solder-tail tip above blade PCB    0.066 mm
 ```
 
-The segment normally treated as the MTLW tail is used as the DDA mating post. The selected `-G` configuration provides plating on this reverse-used segment, but its contact wear, retention, and long-term behavior in this unconventional role remain prototype-validation items.
+`MTLW-106-05-G-D-140` uses the normal manufacturer orientation: the `-140` post is the DDA mating end and receives the specified 10 µin gold plating; the opposite 3.434 mm segment is the solder tail. Samtec lists this exact configuration in its Reserve program. See the [exact Samtec product page](https://www.samtec.com/products/mtlw-106-05-g-d-140) and [official MTLW series print](https://suddendocs.samtec.com/catalog_english/mtlw_th.pdf).
 
 Measured DDA geometry:
 
@@ -108,11 +108,13 @@ The 4.0 mm value already includes the 1.6 mm PCB. It must not be calculated as `
 
 ```text
 adapter underside                                  2.500 mm
-+ MTLW OAL - body - lower segment - insertion      1.811 mm
-= DDA socket mating face                           4.311 mm
++ adapter PCB                                      1.000 mm
++ MTLW insulator                                   1.520 mm
++ unused designated post after insertion           0.156 mm
+= DDA socket mating face                           5.176 mm
 + mating face to socket-side PCB surface           8.300 mm
 + socket-side surface to GNSS top                  4.000 mm
-= total outward stack                             16.611 mm
+= total outward stack                             17.476 mm
 ```
 
 ## Placement and BladeRunner clearance
@@ -132,9 +134,9 @@ BladeRunner clearance uses the physical slit-edge result, not slit centerline pi
 physical per-blade clearance       19.9317 mm
 safety reserve                      1.0000 mm
 design maximum                     18.9317 mm
-approved outward stack             16.6110 mm
-physical nominal clearance          3.3207 mm
-margin after 1.0 mm reserve         2.3207 mm
+approved outward stack             17.4760 mm
+physical nominal clearance          2.4557 mm
+margin after 1.0 mm reserve         1.4557 mm
 ```
 
 CI authenticates the pinned official `half body.stl`, rechecks its mesh encoding, triangle count, hash, and outer bounds, and applies the previously slit-edge-derived 19.9317 mm physical clearance. It does not substitute the obsolete `(-1.5, 45.0)` clearance box or the former 36 mm total-depth rule.
@@ -148,7 +150,7 @@ CI authenticates the pinned official `half body.stl`, rechecks its mesh encoding
 - `models/bladerunner/19-inch/left bracket.stl`
 - `models/bladerunner/19-inch/right bracket.stl`
 
-Pure-Python validation checks the shared transforms, pin-1 mapping, connector reach, 3.40 mm insertion, lower-post clearance, DDA XY keep-in, 16.611 mm stack, and BladeRunner margins. The CadQuery assembly stage additionally intersects the DDA, J2, and adapter-outside-J1 region against the exact official Compute Blade B-Rep and fails on material overlap.
+Pure-Python validation checks the shared transforms, pin-1 mapping, designated J2 mating end, connector reach, 3.40 mm insertion, solder-tail clearance, DDA XY keep-in, 17.476 mm stack, and BladeRunner margins. The CadQuery assembly stage additionally intersects the DDA, J2, and adapter-outside-J1 region against the exact official Compute Blade B-Rep and fails on material overlap.
 
 The confirmed DDA pin-1 orientation remains:
 
@@ -189,8 +191,8 @@ GitHub Actions repeats deterministic generation, connectivity verification, unit
 
 ## Prototype-only risks
 
-- Reverse-use MTLW contact plating, wear, and retention behavior.
-- Actual HLE seating against the Compute Blade header plastic and practical soldering on 0.6 mm FR-4.
+- Actual HLE seating against the Compute Blade header plastic and practical soldering on 1.0 mm FR-4.
+- Production tolerance and solder-fillet confirmation for the nominal 0.066 mm gap between the J2 tail tips and Compute Blade PCB plane.
 - Physical connector insertion and extraction forces.
 - Residual differences between simplified connector bodies and production parts.
 - Final assembled fit in a real 19-inch BladeRunner, including manufacturing and seating tolerances.

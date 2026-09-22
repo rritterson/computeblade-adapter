@@ -52,7 +52,7 @@ jobs:
           test -s mechanical/generated/full_assembly_with_bladerunner.step
           test -s mechanical/generated/full_assembly_lightweight.step
           test -s mechanical/generated/j1_hle_105_02_l_dv_pe_be.step
-          test -s mechanical/generated/j2_mtlw_106_06_g_d_035_reverse.step
+          test -s mechanical/generated/j2_mtlw_106_05_g_d_140.step
           test -s mechanical/generated/render_top.png
           test -s mechanical/generated/render_side.png
           test -s mechanical/generated/render_end.png

@@ -66,8 +66,8 @@ def write_side_svg(path: Path, boxes: list[Box]) -> None:
         "compute_blade_header_plastic": "#202020",
         "compute_blade_header_exposed_posts": "#c7a338",
         "j1_hle_body": "#444444",
-        "j2_mtlw_reverse_insulator": "#202020",
-        "j2_upper_dda_mating_posts": "#c7a338",
+        "j2_mtlw_insulator": "#202020",
+        "j2_designated_dda_mating_posts": "#c7a338",
         "j2_lower_posts": "#b8932e",
     }
     scale = 20.0
@@ -109,7 +109,7 @@ def main() -> None:
         "adapter_underside_mm": ADAPTER_Z_ABOVE_BLADE_MM,
         "adapter_thickness_mm": BOARD_THICKNESS_MM,
         "j1_required_bottom_entry_reach_mm": J1_INSERTION_DEPTH_MIN_MM,
-        "j2_reverse_mating_segment_mm": J2_MATING_POST_LENGTH_MM,
+        "j2_designated_mating_post_mm": J2_MATING_POST_LENGTH_MM,
         "j2_lower_tip_z_mm": J2_LOWER_TIP_Z_MM,
         "dda_insertion_mm": DDA_MIN_ACCEPTABLE_INSERTION_MM,
         "dda_mating_face_z_mm": J2_DDA_SOCKET_MATING_FACE_Z_MM,

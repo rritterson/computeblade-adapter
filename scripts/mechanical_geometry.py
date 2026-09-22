@@ -145,11 +145,11 @@ def connector_boxes() -> list[Box]:
             J1_BODY_Z_MIN_MM, J1_BODY_Z_MAX_MM,
         ),
         Box(
-            "j2_mtlw_reverse_insulator", body_x0, body_x1, body_y0, body_y1,
+            "j2_mtlw_insulator", body_x0, body_x1, body_y0, body_y1,
             J2_BODY_Z_MIN_MM, J2_BODY_Z_MAX_MM,
         ),
         Box(
-            "j2_upper_dda_mating_posts",
+            "j2_designated_dda_mating_posts",
             j2x - 0.32, j2x + 5 * DDA.row_pitch + 0.32,
             j2y - DDA.row_pitch - 0.32, j2y + 0.32,
             J2_BODY_Z_MAX_MM, J2_UPPER_TIP_Z_MM,

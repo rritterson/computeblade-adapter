@@ -9,7 +9,7 @@ from dataclasses import dataclass
 # Assembly coordinates are those of the official Compute Blade STEP:
 # X = blade long axis, Y = blade width, Z = outward PCB normal.
 PITCH_MM = 2.54
-BOARD_THICKNESS_MM = 0.6
+BOARD_THICKNESS_MM = 1.0
 SIGNAL_TRACE_WIDTH_MM = 0.25
 POWER_TRACE_WIDTH_MM = 0.50
 
@@ -63,11 +63,12 @@ DDA_ROTATION_180 = False
 # dimension-driven implementations of the Samtec recommended through-hole
 # patterns with explicit fab/courtyard data.
 J1_FOOTPRINT = "Adapter:Samtec_HLE-105-02-L-DV-PE-BE"
-J2_FOOTPRINT = "Adapter:Samtec_MTLW-106-06-G-D-035_Reverse"
+J2_FOOTPRINT = "Adapter:Samtec_MTLW-106-05-G-D-140"
 J1_MODEL = "${KIPRJMOD}/../mechanical/generated/j1_hle_105_02_l_dv_pe_be.step"
-J2_MODEL = "${KIPRJMOD}/../mechanical/generated/j2_mtlw_106_06_g_d_035_reverse.step"
+J2_MODEL = "${KIPRJMOD}/../mechanical/generated/j2_mtlw_106_05_g_d_140.step"
 J1_CANDIDATE_PART = "Samtec HLE-105-02-L-DV-PE-BE"
-J2_CANDIDATE_PART = "Samtec MTLW-106-06-G-D-035"
+J2_CANDIDATE_PART = "Samtec MTLW-106-05-G-D-140"
+J2_USES_DESIGNATED_MATING_END = True
 
 # Physically measured Compute Blade extension-header dimensions.
 COMPUTE_BLADE_HEADER_PLASTIC_TOP_MM = 2.5
@@ -87,15 +88,15 @@ ADAPTER_Z_ABOVE_BLADE_MM = J1_NOMINAL_STACK_HEIGHT_MM + J1_SEATING_GAP_MM
 J1_BODY_Z_MIN_MM = ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM
 J1_BODY_Z_MAX_MM = J1_BODY_Z_MIN_MM + J1_SOCKET_BODY_HEIGHT_MM
 
-# Reverse/pass-through MTLW-106-06-G-D-035 manufacturer geometry.
-J2_OAL_MM = 7.620
+# Conventional MTLW-106-05-G-D-140 manufacturer geometry. The -140 dimension
+# is the designated, gold-plated mating post; the opposite end is the solder
+# tail. The body sits conventionally on the adapter's outward/top surface.
+J2_OAL_MM = 8.510
 J2_BODY_HEIGHT_MM = 1.520
-J2_LOWER_POST_LENGTH_MM = 0.889  # exact -035 body position
-J2_UPPER_DDA_MATING_POST_LENGTH_MM = (
-    J2_OAL_MM - J2_BODY_HEIGHT_MM - J2_LOWER_POST_LENGTH_MM
-)
-J2_MATING_POST_LENGTH_MM = J2_UPPER_DDA_MATING_POST_LENGTH_MM
-J2_SOLDER_TAIL_LENGTH_MM = J2_LOWER_POST_LENGTH_MM
+J2_MATING_POST_LENGTH_MM = 3.556  # -140 inches converted to millimetres
+J2_SOLDER_TAIL_LENGTH_MM = J2_OAL_MM - J2_BODY_HEIGHT_MM - J2_MATING_POST_LENGTH_MM
+J2_LOWER_POST_LENGTH_MM = J2_SOLDER_TAIL_LENGTH_MM
+J2_MIN_SOLDER_PROTRUSION_BELOW_PCB_MM = 0.8
 J2_BODY_PLAN_MM = (15.24, 5.03)
 
 # User-defined DDA engagement requirement.
@@ -105,12 +106,12 @@ J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM = round(
     J2_MATING_POST_LENGTH_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM, 3
 )
 
-# The reverse-mounted insulator sits immediately under the adapter. The -035
-# segment continues below it but remains above the Compute Blade PCB plane.
-J2_BODY_Z_MAX_MM = ADAPTER_Z_ABOVE_BLADE_MM
-J2_BODY_Z_MIN_MM = J2_BODY_Z_MAX_MM - J2_BODY_HEIGHT_MM
+# The insulator sits on the adapter top in the manufacturer's normal mounting
+# orientation. The designated mating post points +Z into the DDA socket.
+J2_BODY_Z_MIN_MM = ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM
+J2_BODY_Z_MAX_MM = J2_BODY_Z_MIN_MM + J2_BODY_HEIGHT_MM
 J2_LOWER_TIP_Z_MM = J2_BODY_Z_MIN_MM - J2_LOWER_POST_LENGTH_MM
-J2_UPPER_TIP_Z_MM = J2_BODY_Z_MAX_MM + J2_UPPER_DDA_MATING_POST_LENGTH_MM
+J2_UPPER_TIP_Z_MM = J2_BODY_Z_MAX_MM + J2_MATING_POST_LENGTH_MM
 J2_DDA_SOCKET_MATING_FACE_Z_MM = J2_UPPER_TIP_Z_MM - DDA_MIN_ACCEPTABLE_INSERTION_MM
 
 

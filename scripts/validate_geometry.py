@@ -44,6 +44,7 @@ from design_config import (
     J1_ORIGIN_MM,
     J1_SEATING_GAP_MM,
     J2_BODY_Z_MAX_MM,
+    J2_BODY_Z_MIN_MM,
     J2_CANDIDATE_PART,
     J2_DDA_SOCKET_MATING_FACE_Z_MM,
     J2_FOOTPRINT,
@@ -53,6 +54,8 @@ from design_config import (
     J2_MATING_POST_LENGTH_MM,
     J2_OAL_MM,
     J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
+    J2_MIN_SOLDER_PROTRUSION_BELOW_PCB_MM,
+    J2_USES_DESIGNATED_MATING_END,
     J2_UPPER_TIP_Z_MM,
 )
 from fetch_reference_cad import REFERENCES, REFERENCE_DIR, UPSTREAM_COMMIT, digest
@@ -272,18 +275,22 @@ def validate_connector_constraints() -> tuple[list[str], list[str]]:
         f"{J1_INSERTION_DEPTH_MIN_MM:.3f} mm required; open pass-through prevents closed-end bottoming"
     )
 
-    expected_upper = J2_OAL_MM - 1.520 - J2_LOWER_POST_LENGTH_MM
-    if abs(J2_MATING_POST_LENGTH_MM - expected_upper) > 1e-9:
-        errors.append("MTLW upper post is not derived from OAL/body/-035 geometry")
+    expected_tail = J2_OAL_MM - 1.520 - J2_MATING_POST_LENGTH_MM
+    if abs(J2_LOWER_POST_LENGTH_MM - expected_tail) > 1e-9:
+        errors.append("MTLW solder tail is not derived from OAL/body/-140 geometry")
     if J2_MATING_POST_LENGTH_MM < DDA_MIN_ACCEPTABLE_INSERTION_MM:
-        errors.append("reverse MTLW segment is too short for DDA insertion")
+        errors.append("designated MTLW mating post is too short for DDA insertion")
+    if not J2_USES_DESIGNATED_MATING_END:
+        errors.append("J2 must use the manufacturer-designated mating end toward the DDA")
+    if J2_LOWER_POST_LENGTH_MM - BOARD_THICKNESS_MM < J2_MIN_SOLDER_PROTRUSION_BELOW_PCB_MM:
+        errors.append("MTLW solder tail does not provide adequate protrusion through the adapter")
     if J2_LOWER_TIP_Z_MM <= 0:
-        errors.append("reverse MTLW lower geometry crosses the Compute Blade PCB plane")
+        errors.append("MTLW solder tail crosses the Compute Blade PCB plane")
     insertion = J2_UPPER_TIP_Z_MM - J2_DDA_SOCKET_MATING_FACE_Z_MM
     if abs(insertion - DDA_MIN_ACCEPTABLE_INSERTION_MM) > 1e-9:
         errors.append("modeled DDA insertion is not exactly 3.40 mm")
     notes.append(
-        f"J2 {J2_CANDIDATE_PART}: upper/reversed mating segment {J2_MATING_POST_LENGTH_MM:.3f} mm; "
+        f"J2 {J2_CANDIDATE_PART}: designated mating post {J2_MATING_POST_LENGTH_MM:.3f} mm; "
         f"insertion {insertion:.3f} mm; free post {J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM:.3f} mm; "
         f"lower tip Z {J2_LOWER_TIP_Z_MM:.3f} mm"
     )
@@ -335,8 +342,8 @@ def geometry_checks() -> tuple[list[str], list[str]]:
         errors.append("outward stack exceeds the BladeRunner design maximum")
     if physical_margin < BLADERUNNER_Z_SAFETY_MARGIN_MM:
         errors.append("nominal physical BladeRunner clearance is below 1.0 mm")
-    if J2_BODY_Z_MAX_MM > ADAPTER_Z_ABOVE_BLADE_MM:
-        errors.append("reverse MTLW insulator is not on the Compute-Blade side of adapter")
+    if J2_BODY_Z_MIN_MM < ADAPTER_Z_ABOVE_BLADE_MM + BOARD_THICKNESS_MM:
+        errors.append("conventional MTLW insulator is not on the outward adapter surface")
 
     global_bounds = (
         projected[0] + COMPUTE_BLADE_STEP_J3_ANCHOR_MM[0],

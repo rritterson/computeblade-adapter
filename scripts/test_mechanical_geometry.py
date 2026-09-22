@@ -26,6 +26,7 @@ from design_config import (
     J2_MATING_POST_LENGTH_MM,
     J2_OAL_MM,
     J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM,
+    J2_USES_DESIGNATED_MATING_END,
     J2_UPPER_TIP_Z_MM,
 )
 from mechanical_geometry import (
@@ -81,19 +82,20 @@ class MechanicalGeometryTests(unittest.TestCase):
         self.assertGreaterEqual(COMPUTE_BLADE_EXPOSED_POST_MM, J1_INSERTION_DEPTH_MIN_MM)
         self.assertAlmostEqual(2.5, ADAPTER_Z_ABOVE_BLADE_MM)
 
-    def test_reverse_mtlw_geometry_and_insertion(self):
-        self.assertAlmostEqual(5.211, J2_MATING_POST_LENGTH_MM)
-        self.assertAlmostEqual(7.620, J2_OAL_MM)
+    def test_conventional_mtlw_geometry_and_insertion(self):
+        self.assertTrue(J2_USES_DESIGNATED_MATING_END)
+        self.assertAlmostEqual(3.556, J2_MATING_POST_LENGTH_MM)
+        self.assertAlmostEqual(8.510, J2_OAL_MM)
         self.assertAlmostEqual(3.400, J2_UPPER_TIP_Z_MM - J2_DDA_SOCKET_MATING_FACE_Z_MM)
         self.assertAlmostEqual(DDA_MIN_ACCEPTABLE_INSERTION_MM, 3.400)
-        self.assertAlmostEqual(1.811, J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM)
+        self.assertAlmostEqual(0.156, J2_POST_LENGTH_MARGIN_AT_MIN_INSERTION_MM)
         self.assertGreater(J2_LOWER_TIP_Z_MM, 0.0)
 
     def test_approved_z_stack_and_bladerunner_margins(self):
-        self.assertAlmostEqual(4.311, J2_DDA_SOCKET_MATING_FACE_Z_MM)
-        self.assertAlmostEqual(16.611, DDA_GNSS_TOP_Z_MM)
-        self.assertAlmostEqual(3.3207, BLADERUNNER_PER_BLADE_PHYSICAL_CLEARANCE_MM - DDA_GNSS_TOP_Z_MM)
-        self.assertAlmostEqual(2.3207, BLADERUNNER_PER_BLADE_DESIGN_MAX_MM - DDA_GNSS_TOP_Z_MM)
+        self.assertAlmostEqual(5.176, J2_DDA_SOCKET_MATING_FACE_Z_MM)
+        self.assertAlmostEqual(17.476, DDA_GNSS_TOP_Z_MM)
+        self.assertAlmostEqual(2.4557, BLADERUNNER_PER_BLADE_PHYSICAL_CLEARANCE_MM - DDA_GNSS_TOP_Z_MM)
+        self.assertAlmostEqual(1.4557, BLADERUNNER_PER_BLADE_DESIGN_MAX_MM - DDA_GNSS_TOP_Z_MM)
         self.assertLessEqual(DDA_GNSS_TOP_Z_MM, BLADERUNNER_PER_BLADE_DESIGN_MAX_MM)
 
     def test_dda_xy_bounds_and_keepin(self):

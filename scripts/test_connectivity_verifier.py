@@ -27,14 +27,14 @@ class ConnectivityVerifierTests(unittest.TestCase):
         pad2 = next(pad for pad in verifier.children(j1, "pad") if pad[1] == "2")
         self.assertEqual((97.46, 60.16), verifier.transformed_pad(j1, pad2))
 
-    def test_j2_is_explicit_reverse_mtlw_with_columns_x_and_rows_y(self):
+    def test_j2_is_explicit_conventional_mtlw_with_columns_x_and_rows_y(self):
         tree = verifier.parse_sexpr(verifier.PCB_PATH.read_text(encoding="utf-8"))
         j2 = next(
             footprint for footprint in verifier.children(tree, "footprint")
             if verifier.properties(footprint).get("Reference") == "J2"
         )
         self.assertEqual(
-            "Adapter:Samtec_MTLW-106-06-G-D-035_Reverse",
+            "Adapter:Samtec_MTLW-106-05-G-D-140",
             j2[1],
         )
         self.assertEqual("90", verifier.child(j2, "at")[3])

@@ -1,5 +1,5 @@
 {
-  "adapter_thickness_mm": 0.6,
+  "adapter_thickness_mm": 1.0,
   "adapter_underside_mm": 2.5,
   "architecture": "parallel DDA, GNSS outward +Z",
   "boxes_relative_to_j3_mm": [
@@ -9,8 +9,8 @@
       "xmin": 26.924922826059998,
       "ymax": 23.674935193086,
       "ymin": 1.1749351930860001,
-      "zmax": 14.211,
-      "zmin": 12.611
+      "zmax": 15.076,
+      "zmin": 13.476
     },
     {
       "name": "dda_socket",
@@ -18,8 +18,8 @@
       "xmin": 27.374922826059997,
       "ymax": 8.674935193086,
       "ymin": 3.674935193086,
-      "zmax": 12.611,
-      "zmin": 4.311
+      "zmax": 13.476,
+      "zmin": 5.176
     },
     {
       "name": "dda_gnss_envelope",
@@ -27,8 +27,8 @@
       "xmin": 26.924922826059998,
       "ymax": 23.674935193086,
       "ymin": 1.1749351930860001,
-      "zmax": 16.611,
-      "zmin": 14.211
+      "zmax": 17.476,
+      "zmin": 15.076
     },
     {
       "name": "dda_battery_rtc_inward_envelope",
@@ -36,8 +36,8 @@
       "xmin": 26.924922826059998,
       "ymax": 23.674935193086,
       "ymin": 1.1749351930860001,
-      "zmax": 12.611,
-      "zmin": 7.861000000000001
+      "zmax": 13.476,
+      "zmin": 8.726
     }
   ],
   "dda_assembly_basis": [
@@ -58,7 +58,7 @@
     ]
   ],
   "dda_insertion_mm": 3.4,
-  "dda_mating_face_z_mm": 4.311,
+  "dda_mating_face_z_mm": 5.176,
   "derived_axis_vectors": {
     "dda_column_axis": [
       1.0,
@@ -101,12 +101,12 @@
       -1.0
     ]
   },
-  "design_reserve_remaining_mm": 2.3206999999999987,
+  "design_reserve_remaining_mm": 1.4557000000000002,
   "j1": "Samtec HLE-105-02-L-DV-PE-BE",
-  "j1_required_bottom_entry_reach_mm": 3.19,
-  "j2": "Samtec MTLW-106-06-G-D-035",
-  "j2_lower_tip_z_mm": 0.09099999999999997,
-  "j2_reverse_mating_segment_mm": 5.210999999999999,
-  "outward_stack_mm": 16.611,
-  "physical_clearance_mm": 3.3206999999999987
+  "j1_required_bottom_entry_reach_mm": 3.59,
+  "j2": "Samtec MTLW-106-05-G-D-140",
+  "j2_designated_mating_post_mm": 3.556,
+  "j2_lower_tip_z_mm": 0.06599999999999984,
+  "outward_stack_mm": 17.476,
+  "physical_clearance_mm": 2.4557
 }

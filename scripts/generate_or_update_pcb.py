@@ -135,29 +135,29 @@ def j1_footprint() -> str:
 
 def j2_footprint() -> str:
     graphics = [
-        fp_rect("J2", 0, (-1.745, -1.77), (4.285, 14.47), "B.CrtYd", 0.05),
-        fp_rect("J2", 1, (-1.305, -1.33), (3.845, 14.03), "B.SilkS", 0.12),
-        fp_rect("J2", 2, (-1.245, -1.27), (3.785, 13.97), "B.Fab", 0.10),
-        fp_line("J2", 3, (-1.245, -1.27), (0.0, -1.27), "B.SilkS", 0.12),
-        fp_line("J2", 4, (-1.245, -1.27), (-1.245, 0.0), "B.SilkS", 0.12),
+        fp_rect("J2", 0, (-1.745, -1.77), (4.285, 14.47), "F.CrtYd", 0.05),
+        fp_rect("J2", 1, (-1.305, -1.33), (3.845, 14.03), "F.SilkS", 0.12),
+        fp_rect("J2", 2, (-1.245, -1.27), (3.785, 13.97), "F.Fab", 0.10),
+        fp_line("J2", 3, (-1.245, -1.27), (0.0, -1.27), "F.SilkS", 0.12),
+        fp_line("J2", 4, (-1.245, -1.27), (-1.245, 0.0), "F.SilkS", 0.12),
     ]
     pads = "\n".join(pad("J2", pin) for pin in range(1, 13))
     return f'''  (footprint "{J2_FOOTPRINT}"
-    (layer "B.Cu")
+    (layer "F.Cu")
     (uuid {uid('J2-footprint')})
     (at {fmt(J2_ORIGIN_MM[0])} {fmt(J2_ORIGIN_MM[1])} {fmt(J2_FOOTPRINT_ROTATION_DEG)})
-    (descr "Samtec MTLW-106-06-G-D-035 reverse-mounted pass-through 2x6 header")
-    (tags "Samtec MTLW reverse pass through 2x6 2.54mm")
-    (property "Reference" "J2" (at 1.27 15.2 0) (layer "B.SilkS")
-      (uuid {uid('J2-reference')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
-    (property "Value" "MTLW-106-06-G-D-035 REVERSE" (at 1.27 15.2 0) (layer "B.Fab")
-      (uuid {uid('J2-value')}) (effects (font (size 1 1) (thickness 0.15)) (justify mirror)))
+    (descr "Samtec MTLW-106-05-G-D-140 conventional 2x6 vertical header")
+    (tags "Samtec MTLW conventional vertical 2x6 2.54mm")
+    (property "Reference" "J2" (at 1.27 15.2 0) (layer "F.SilkS")
+      (uuid {uid('J2-reference')}) (effects (font (size 1 1) (thickness 0.15))))
+    (property "Value" "MTLW-106-05-G-D-140" (at 1.27 15.2 0) (layer "F.Fab")
+      (uuid {uid('J2-value')}) (effects (font (size 1 1) (thickness 0.15))))
     (attr through_hole)
 {chr(10).join(graphics)}
-    (fp_text user "1" (at -2.4 0 0) (layer "B.SilkS")
-      (uuid {uid('J2-pin1-text')}) (effects (font (size 0.8 0.8) (thickness 0.14)) (justify mirror)))
-    (fp_text user "REVERSE / DDA ABOVE" (at 1.27 6.35 90) (layer "B.SilkS")
-      (uuid {uid('J2-mating-direction')}) (effects (font (size 0.65 0.65) (thickness 0.11)) (justify mirror)))
+    (fp_text user "1" (at -2.4 0 0) (layer "F.SilkS")
+      (uuid {uid('J2-pin1-text')}) (effects (font (size 0.8 0.8) (thickness 0.14))))
+    (fp_text user "DDA MATING END +Z" (at 1.27 6.35 90) (layer "F.SilkS")
+      (uuid {uid('J2-mating-direction')}) (effects (font (size 0.8 0.8) (thickness 0.12))))
 {pads}
     (model "{J2_MODEL}" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))
   )'''
@@ -548,7 +548,7 @@ def build_board() -> str:
     (stackup
       (layer "F.SilkS" (type "Top Silk Screen")) (layer "F.Mask" (type "Top Solder Mask"))
       (layer "F.Cu" (type "copper") (thickness 0.035))
-      (layer "dielectric 1" (type "core") (thickness 0.53) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
+      (layer "dielectric 1" (type "core") (thickness 0.93) (material "FR4") (epsilon_r 4.5) (loss_tangent 0.02))
       (layer "B.Cu" (type "copper") (thickness 0.035))
       (layer "B.Mask" (type "Bottom Solder Mask")) (layer "B.SilkS" (type "Bottom Silk Screen"))
       (copper_finish "None") (dielectric_constraints no))
@@ -583,7 +583,7 @@ def build_bom() -> str:
         f'J1,1,Samtec,"{J1_CANDIDATE_PART.removeprefix("Samtec ")}",'
         '2x5 2.54 mm bottom-entry pass-through receptacle,Top / through-hole\n'
         f'J2,1,Samtec,"{J2_CANDIDATE_PART.removeprefix("Samtec ")}",'
-        '2x6 2.54 mm variable-post header used in reverse,Bottom / through-hole\n'
+        '2x6 2.54 mm variable-post header in conventional mating orientation,Top / through-hole\n'
     )
 
 
@@ -596,7 +596,7 @@ def main() -> None:
     print(f"Wrote {REPORT_PATH.relative_to(ROOT)}")
     print(f"Wrote {BOM_PATH.relative_to(ROOT)}")
     print(f"J1-to-J2 pin-1 X offset: {J2_CENTERLINE_OFFSET_MM:.3f} mm")
-    print(f"J2 reverse vertical mating direction: +Z; KiCad footprint rotation: {J2_FOOTPRINT_ROTATION_DEG:g} degrees")
+    print(f"J2 designated vertical mating direction: +Z; KiCad footprint rotation: {J2_FOOTPRINT_ROTATION_DEG:g} degrees")
 
 
 if __name__ == "__main__":

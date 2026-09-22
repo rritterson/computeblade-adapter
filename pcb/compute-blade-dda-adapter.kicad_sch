@@ -4,7 +4,7 @@
   (title_block
     (title "Compute Blade to DDA GPS/RTC passive adapter")
     (date "2026-09-21")
-    (rev "0.3-parallel")
+    (rev "0.4-parallel-conventional")
     (company "Open hardware reference design")
     (comment 1 "PHYSICAL HEADER PIN NUMBERS ONLY"))
   (lib_symbols
@@ -197,8 +197,8 @@
     (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
     (uuid c92f18fa-9875-572e-94d3-ffe193f5c39d)
     (property "Reference" "J2" (at 111.76 66.04 0) (effects (font (size 1.27 1.27))))
-    (property "Value" "MTLW-106-06-G-D-035 REVERSE" (at 111.76 86.36 0) (effects (font (size 1.27 1.27))))
-    (property "Footprint" "Adapter:Samtec_MTLW-106-06-G-D-035_Reverse" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
+    (property "Value" "MTLW-106-05-G-D-140" (at 111.76 86.36 0) (effects (font (size 1.27 1.27))))
+    (property "Footprint" "Adapter:Samtec_MTLW-106-05-G-D-140" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
     (property "Datasheet" "~" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
     (property "Description" "Physical pin numbering; do not reinterpret as BCM numbering" (at 111.76 76.20 0) (effects (font (size 1.27 1.27)) hide))
     (pin "1" (uuid 1bb52d7e-1aaa-54a8-8802-336d45c3f243))

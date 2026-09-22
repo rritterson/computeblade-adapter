@@ -51,7 +51,7 @@ FULL_ASSEMBLY = OUTPUT / "full_assembly.step"
 FULL_ASSEMBLY_WITH_BLADERUNNER = OUTPUT / "full_assembly_with_bladerunner.step"
 LIGHTWEIGHT_ASSEMBLY = OUTPUT / "full_assembly_lightweight.step"
 J1_STEP = OUTPUT / "j1_hle_105_02_l_dv_pe_be.step"
-J2_STEP = OUTPUT / "j2_mtlw_106_06_g_d_035_reverse.step"
+J2_STEP = OUTPUT / "j2_mtlw_106_05_g_d_140.step"
 MANIFEST = OUTPUT / "full_assembly_manifest.json"
 
 RENDERS = {
@@ -168,12 +168,12 @@ def export_connector_models(cq: Any) -> None:
     cq.exporters.export(cq.Compound.makeCompound([j1_body, *j1_pins]), str(J1_STEP), exportType=cq.exporters.ExportTypes.STEP)
 
     length, width = J2_BODY_PLAN_MM
-    j2_body = cq.Solid.makeBox(width, length, J2_BODY_HEIGHT_MM, cq.Vector(-1.245, -1.27, -J2_BODY_HEIGHT_MM))
+    j2_body = cq.Solid.makeBox(width, length, J2_BODY_HEIGHT_MM, cq.Vector(-1.245, -1.27, 0))
     j2_pins = []
     for y in (0, 2.54, 5.08, 7.62, 10.16, 12.70):
         for x in (0, 2.54):
             j2_pins.append(
-                cq.Solid.makeBox(0.635, 0.635, J2_LOWER_POST_LENGTH_MM + J2_MATING_POST_LENGTH_MM,
+                cq.Solid.makeBox(0.635, 0.635, J2_LOWER_POST_LENGTH_MM + J2_BODY_HEIGHT_MM + J2_MATING_POST_LENGTH_MM,
                     cq.Vector(x - 0.3175, y - 0.3175, -J2_LOWER_POST_LENGTH_MM))
             )
     cq.exporters.export(cq.Compound.makeCompound([j2_body, *j2_pins]), str(J2_STEP), exportType=cq.exporters.ExportTypes.STEP)
@@ -227,7 +227,7 @@ def make_assembly(cq: Any, include_clearance: bool) -> tuple[Any, Any, list[str]
     collisions = exact_collision_check(cq, blade, adapter)
     parts: list[tuple[str, Any, Any]] = [
         ("Compute_Blade_DEV_official_STEP", blade, cq.Color(0.55, 0.57, 0.60)),
-        ("Adapter_PCB_actual_outline_0p6mm", adapter, cq.Color(0.10, 0.50, 0.22)),
+        ("Adapter_PCB_actual_outline_1p0mm", adapter, cq.Color(0.10, 0.50, 0.22)),
         *connector_shapes(cq),
         *dda_shapes(cq),
     ]
@@ -365,7 +365,7 @@ def main() -> int:
         "cadquery_version": cq.__version__,
         "architecture": "parallel DDA; GNSS outward +Z; socket/battery inward -Z",
         "j1": {"part": J1_CANDIDATE_PART, "model": "manufacturer-dimensioned approximation"},
-        "j2": {"part": J2_CANDIDATE_PART, "model": "manufacturer-dimensioned reverse-mount approximation"},
+        "j2": {"part": J2_CANDIDATE_PART, "model": "manufacturer-dimensioned conventional-mount approximation"},
         "geometry_state": {
             "dda_assembly_basis": DDA_ASSEMBLY_BASIS,
             "derived_axis_vectors": assembly_axis_vectors(),
